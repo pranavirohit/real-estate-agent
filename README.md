@@ -91,6 +91,8 @@ Details and templates: **`dokimos-app-v2/.env.example`**, root **`.env.example`*
 
 | URL | What |
 |-----|------|
+| **`/agent`** | Rental agent chat (mock NYC listings, Dokimos verification, application receipt). |
+| **`/landlord`** | Landlord demo table for submitted rental applications and independent verification. |
 | **`/`** | Marketing landing (`DokimosLanding`). |
 | **`/onboarding`** | Consumer onboarding: ID upload → liveness → TEE verify → vault. |
 | **`/app/vault`**, **`/app/requests`**, **`/app/settings`** | Signed-in app shell (vault, activity, settings). |
@@ -108,7 +110,7 @@ Product intent and positioning: [`dokimos-app-v2/docs/PRD.md`](./dokimos-app-v2/
 
 ## API surface (Next BFF → Fastify)
 
-The Next app implements **`/api/verify`**, **`/api/re-verify`**, **`/api/approve-request`**, **`/api/request-verification`**, user and verifier request listings, verifier auth proxies, **`/api/verify-attestation`**, and NextAuth. Clients should use **relative** `/api/...` URLs so cookies and origin stay consistent.
+The Next app implements **`/api/verify`**, **`/api/re-verify`**, **`/api/approve-request`**, **`/api/request-verification`**, **`/api/agent-verify`**, **`/api/rental-application`**, **`/api/rental-applications`**, user and verifier request listings, verifier auth proxies, **`/api/verify-attestation`**, and NextAuth. Clients should use **relative** `/api/...` URLs so cookies and origin stay consistent.
 
 ---
 

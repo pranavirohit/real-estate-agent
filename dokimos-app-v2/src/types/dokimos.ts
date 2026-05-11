@@ -41,6 +41,19 @@ export interface VerificationRequest {
   attestation: unknown | null;
 }
 
+/** In-memory rental applications from POST /api/rental-application (demo). */
+export interface RentalApplicationRecord {
+  applicationId: string;
+  listingId: string;
+  listingAddress: string;
+  userId: string;
+  applicantName?: string;
+  attestationRequestId: string;
+  attestation: unknown;
+  status: "submitted";
+  submittedAt: string;
+}
+
 export const STORAGE_ONBOARDING_COMPLETE = "dokimos_onboarding_complete";
 
 /** Set when TEE encrypted+stored the ID image for POST /re-verify (POC). */

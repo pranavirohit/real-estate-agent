@@ -31,20 +31,17 @@ module.exports = {
         },
       },
       fontFamily: {
-        /** Plaid-style marketing (see Plus Jakarta in root layout) */
         landing: [
           "var(--font-landing-sans)",
-          "var(--font-geist-sans)",
           "system-ui",
           "sans-serif",
         ],
         sans: [
-          "var(--font-geist-sans)",
+          "var(--font-landing-sans)",
           "system-ui",
           "sans-serif",
         ],
         mono: [
-          "var(--font-geist-mono)",
           "ui-monospace",
           "monospace",
         ],

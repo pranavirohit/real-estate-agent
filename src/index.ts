@@ -19,6 +19,18 @@ import {
   type FaceMatchResult,
 } from './faceVerification';
 
+type RentalApplication = {
+  applicationId: string;
+  listingId: string;
+  listingAddress: string;
+  userId: string;
+  applicantName?: string;
+  attestationRequestId: string;
+  attestation: unknown;
+  status: 'submitted';
+  submittedAt: string;
+};
+
 dotenv.config();
 
 function stableStringifyAttributes(
@@ -307,6 +319,26 @@ const approveRequestBodySchema = z.object({
   imageBase64: z.string().optional(),
 });
 
+const agentVerifyBodySchema = z.object({
+  userId: z.string().email(),
+  workflowId: z.string().min(1).max(128),
+  agentId: z.string().min(1).max(128),
+});
+
+const rentalApplicationBodySchema = z.object({
+  listingId: z.string().min(1).max(128),
+  userId: z.string().email(),
+  attestationRequestId: z.string().min(1).max(128),
+  listingAddress: z.string().min(1).max(500),
+});
+
+function requestedAttributesForAgentWorkflow(workflowId: string): string[] {
+  if (workflowId === 'rental_application') {
+    return ['name', 'ageOver18', 'address', 'notExpired'];
+  }
+  return ['name', 'ageOver18'];
+}
+
 const verifyBodySchema = z.object({
   imageBase64: z.string().min(1),
   livePhotoBase64: z.string().min(1).optional(),
@@ -393,9 +425,63 @@ interface VerificationRequest {
 const users = new Map<string, User>();
 const verifiers = new Map<string, Verifier>();
 const requests = new Map<string, VerificationRequest>();
+const rentalApplications = new Map<string, RentalApplication>();
+
+/** Verifier id for real-estate / rental application demo (see CURSOR_CONTEXT). */
+const RENTAL_REAL_ESTATE_VERIFIER_ID = 'realestate_prod';
+
+/** Signed demo attestations so seeded dashboard rows work with Etherscan verification. */
+async function buildDemoAttestation(
+  account: HDAccount,
+  attributes: Record<string, string | boolean>,
+  timestamp: string,
+  opts?: {
+    biometricVerification?: { faceMatch: boolean; confidence: number };
+  }
+): Promise<NonNullable<VerificationRequest['attestation']>> {
+  const attributesHash = computeAttributesHash(attributes);
+  const message = `IdentityAttestation|${attributesHash}|${timestamp}`;
+  const messageHash = hashMessage(message);
+  const signature = await account.signMessage({ message });
+  const mrenclave =
+    '0x' +
+    crypto.createHash('sha256').update('dokimos-demo-seed-v1').digest('hex');
+  const quote = Buffer.concat([
+    Buffer.from([0x04, 0x00, 0x03, 0x00]),
+    crypto.randomBytes(1020),
+  ]).toString('base64');
+  return {
+    attributes,
+    attributesHash,
+    timestamp,
+    message,
+    messageHash,
+    signature,
+    signer: account.address,
+    tee: {
+      platform: 'Intel TDX',
+      quote,
+      mrenclave,
+      mrsigner:
+        '0x8086000000000000000000000000000000000000000000000000000000000000',
+      tcbStatus: 'UpToDate',
+      reportData: messageHash.slice(2, 66),
+    },
+    eigen: {
+      verifier: 'Eigen AVS',
+      appId: DEFAULT_EIGEN_APP_ID,
+      verificationUrl: `https://verify-sepolia.eigencloud.xyz/app/${DEFAULT_EIGEN_APP_ID}`,
+      verified: true,
+      verifiedAt: timestamp,
+    },
+    ...(opts?.biometricVerification
+      ? { biometricVerification: opts.biometricVerification }
+      : {}),
+  };
+}
 
 /** Demo accounts share password `demo1234` (min 8 chars). Hashed once at startup. */
-async function seedDemoAccounts(): Promise<void> {
+async function seedDemoAccounts(account: HDAccount): Promise<void> {
   const demoHash = await bcrypt.hash('demo1234', 10);
   /** Four consumer demo personas — match dokimos-app-v2 demo login + verifier "Send request" UI. */
   const demoConsumers: { email: string; name: string; userId: string }[] = [
@@ -421,6 +507,7 @@ async function seedDemoAccounts(): Promise<void> {
     ['identity@uber.com', 'verifier_006', 'Uber'],
     ['kyc@stripe.com', 'verifier_007', 'Stripe'],
     ['verify@upwork.com', 'verifier_008', 'Upwork'],
+    ['broker@brooklyn-properties.demo', RENTAL_REAL_ESTATE_VERIFIER_ID, 'Brooklyn Properties LLC'],
   ];
   for (const [email, verifierId, companyName] of demoVerifiers) {
     verifiers.set(email, {
@@ -431,12 +518,12 @@ async function seedDemoAccounts(): Promise<void> {
     });
   }
 
-  seedDemoVerificationRequests();
-  seedVerifierDashboardDemos();
+  await seedDemoVerificationRequests(account);
+  await seedVerifierDashboardDemos(account);
 }
 
 /** Many rows per verifier so the business dashboard table (search, sort, pages) has realistic volume. */
-function seedVerifierDashboardDemos(): void {
+async function seedVerifierDashboardDemos(account: HDAccount): Promise<void> {
   const first = [
     'Jordan', 'Sarah', 'Michael', 'Emma', 'James', 'Olivia', 'David', 'Sophia',
     'Daniel', 'Isabella', 'Ryan', 'Mia', 'Kevin', 'Ava',
@@ -447,29 +534,6 @@ function seedVerifierDashboardDemos(): void {
   ];
   const now = Date.now();
   const day = 86400000;
-
-  const mockAttFull = (
-    displayName: string,
-    ts: string,
-    confidence: number
-  ): VerificationRequest['attestation'] => ({
-    attributes: {
-      name: displayName,
-      ageOver18: true,
-      ageOver21: true,
-      notExpired: true,
-      nationality: 'United States',
-    },
-    timestamp: ts,
-    message: `IdentityAttestation|demo|${ts}`,
-    messageHash: '0x0',
-    signature: '0xdemo',
-    signer: '0x0000000000000000000000000000000000000000',
-    biometricVerification: {
-      faceMatch: true,
-      confidence,
-    },
-  });
 
   for (const v of verifiers.values()) {
     for (let i = 0; i < 32; i++) {
@@ -501,10 +565,22 @@ function seedVerifierDashboardDemos(): void {
       } else {
         status = 'approved';
         completedAt = new Date(createdAtMs + 120000).toISOString();
-        attestation = mockAttFull(
-          displayName,
+        attestation = await buildDemoAttestation(
+          account,
+          {
+            name: displayName,
+            ageOver18: true,
+            ageOver21: true,
+            notExpired: true,
+            nationality: 'United States',
+          },
           completedAt,
-          0.92 + (i % 8) * 0.01
+          {
+            biometricVerification: {
+              faceMatch: true,
+              confidence: 0.92 + (i % 8) * 0.01,
+            },
+          }
         );
       }
 
@@ -526,24 +602,12 @@ function seedVerifierDashboardDemos(): void {
 }
 
 /** Populates in-memory requests so the user app “Where you’ve verified” screen has demo rows. */
-function seedDemoVerificationRequests(): void {
+async function seedDemoVerificationRequests(account: HDAccount): Promise<void> {
   const userEmail = 'janice.sample@example.com';
   const now = Date.now();
   const day = 86400000;
 
-  const mockAtt = (
-    attrs: Record<string, string | boolean>,
-    ts: string
-  ): VerificationRequest['attestation'] => ({
-    attributes: attrs,
-    timestamp: ts,
-    message: `IdentityAttestation|demo|${ts}`,
-    messageHash: '0x0',
-    signature: '0xdemo',
-    signer: '0x0000000000000000000000000000000000000000',
-  });
-
-  const demos: VerificationRequest[] = [
+  const demos: Omit<VerificationRequest, 'attestation'>[] = [
     {
       requestId: 'req_demo_coinbase',
       verifierId: 'verifier_002',
@@ -555,10 +619,6 @@ function seedDemoVerificationRequests(): void {
       status: 'approved',
       createdAt: new Date(now).toISOString(),
       completedAt: new Date(now).toISOString(),
-      attestation: mockAtt(
-        { ageOver21: true, notExpired: true },
-        new Date(now).toISOString()
-      ),
     },
     {
       requestId: 'req_demo_acme',
@@ -571,14 +631,6 @@ function seedDemoVerificationRequests(): void {
       status: 'approved',
       createdAt: new Date(now - 2 * day).toISOString(),
       completedAt: new Date(now - 2 * day).toISOString(),
-      attestation: mockAtt(
-        {
-          name: 'Janice Sample',
-          ageOver21: true,
-          notExpired: true,
-        },
-        new Date(now - 2 * day).toISOString()
-      ),
     },
     {
       requestId: 'req_demo_uber',
@@ -591,10 +643,6 @@ function seedDemoVerificationRequests(): void {
       status: 'approved',
       createdAt: new Date(now - 4 * day).toISOString(),
       completedAt: new Date(now - 4 * day).toISOString(),
-      attestation: mockAtt(
-        { name: 'Janice Sample', notExpired: true },
-        new Date(now - 4 * day).toISOString()
-      ),
     },
     {
       requestId: 'req_demo_upwork',
@@ -607,10 +655,6 @@ function seedDemoVerificationRequests(): void {
       status: 'approved',
       createdAt: new Date(now - 9 * day).toISOString(),
       completedAt: new Date(now - 9 * day).toISOString(),
-      attestation: mockAtt(
-        { name: 'Janice Sample', nationality: 'United States' },
-        new Date(now - 9 * day).toISOString()
-      ),
     },
     {
       requestId: 'req_demo_binance_old',
@@ -623,21 +667,35 @@ function seedDemoVerificationRequests(): void {
       status: 'approved',
       createdAt: new Date(now - 120 * day).toISOString(),
       completedAt: new Date(now - 120 * day).toISOString(),
-      attestation: mockAtt(
-        {
-          name: 'Janice Sample',
-          dateOfBirth: '1990-01-15',
-          ageOver18: true,
-          ageOver21: true,
-          notExpired: true,
-        },
-        new Date(now - 120 * day).toISOString()
-      ),
     },
   ];
 
-  for (const r of demos) {
-    requests.set(r.requestId, r);
+  const attrSets: Record<string, Record<string, string | boolean>> = {
+    req_demo_coinbase: { ageOver21: true, notExpired: true },
+    req_demo_acme: {
+      name: 'Janice Sample',
+      ageOver21: true,
+      notExpired: true,
+    },
+    req_demo_uber: { name: 'Janice Sample', notExpired: true },
+    req_demo_upwork: { name: 'Janice Sample', nationality: 'United States' },
+    req_demo_binance_old: {
+      name: 'Janice Sample',
+      dateOfBirth: '1990-01-15',
+      ageOver18: true,
+      ageOver21: true,
+      notExpired: true,
+    },
+  };
+
+  for (const d of demos) {
+    const ts = d.completedAt ?? d.createdAt;
+    const attestation = await buildDemoAttestation(
+      account,
+      attrSets[d.requestId],
+      ts
+    );
+    requests.set(d.requestId, { ...d, attestation });
   }
 }
 
@@ -1037,7 +1095,7 @@ async function main() {
     process.exit(1);
   }
 
-  await seedDemoAccounts();
+  await seedDemoAccounts(account);
 
   // Helper functions for generating realistic TEE attestation data
   function generateMockQuote(): string {
@@ -1720,6 +1778,120 @@ async function main() {
       return reply.code(400).send({ error: 'Invalid payload or verification failed.' });
     }
   });
+
+  server.post('/api/agent-verify', async (request, reply) => {
+    const parsed = agentVerifyBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: 'Invalid input', details: parsed.error.flatten() });
+    }
+    const { userId, workflowId, agentId } = parsed.data;
+    server.log.info({ agentId, workflowId }, 'agent-verify');
+    const userEmail = normalizeConsumerEmail(userId);
+
+    let verifier: Verifier | undefined;
+    for (const v of verifiers.values()) {
+      if (v.verifierId === RENTAL_REAL_ESTATE_VERIFIER_ID) {
+        verifier = v;
+        break;
+      }
+    }
+    if (!verifier) {
+      return reply.code(500).send({ error: 'Rental verifier not configured' });
+    }
+
+    const user = users.get(userEmail);
+    if (!user) {
+      return reply.code(404).send({ error: 'User not found' });
+    }
+
+    const requestId = `req_${Date.now()}`;
+    const requestedAttributes = requestedAttributesForAgentWorkflow(workflowId);
+    const newRequest: VerificationRequest = {
+      requestId,
+      verifierId: verifier.verifierId,
+      verifierName: verifier.companyName,
+      verifierEmail: verifier.email,
+      userEmail,
+      requestedAttributes,
+      workflow: workflowId,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      attestation: null,
+    };
+    requests.set(requestId, newRequest);
+
+    return { requestId, status: 'pending' as const };
+  });
+
+  server.get<{ Params: { requestId: string } }>(
+    '/api/agent-verify/:requestId',
+    async (request, reply) => {
+      const { requestId } = request.params;
+      const req = requests.get(requestId);
+      if (!req) {
+        return reply.code(404).send({ error: 'Request not found' });
+      }
+      return {
+        status: req.status,
+        attestation: req.status === 'approved' ? req.attestation : null,
+      };
+    }
+  );
+
+  server.post('/api/rental-application', async (request, reply) => {
+    const parsed = rentalApplicationBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: 'Invalid input', details: parsed.error.flatten() });
+    }
+    const { listingId, userId, attestationRequestId, listingAddress } =
+      parsed.data;
+    const userEmail = normalizeConsumerEmail(userId);
+
+    const req = requests.get(attestationRequestId);
+    if (!req) {
+      return reply.code(404).send({ error: 'Verification request not found' });
+    }
+    if (normalizeConsumerEmail(req.userEmail) !== userEmail) {
+      return reply.code(403).send({ error: 'Request does not match user' });
+    }
+    if (req.status !== 'approved' || !req.attestation) {
+      return reply
+        .code(400)
+        .send({ error: 'Verification not completed or missing attestation' });
+    }
+
+    const applicationId = `app_${Date.now()}`;
+    const u = users.get(userEmail);
+    const row: RentalApplication = {
+      applicationId,
+      listingId,
+      listingAddress,
+      userId: userEmail,
+      applicantName: u?.name,
+      attestationRequestId,
+      attestation: req.attestation,
+      status: 'submitted',
+      submittedAt: new Date().toISOString(),
+    };
+    rentalApplications.set(applicationId, row);
+
+    return {
+      applicationId,
+      status: 'submitted' as const,
+      attestation: req.attestation,
+    };
+  });
+
+  server.get('/api/rental-applications', async () =>
+    Array.from(rentalApplications.values()).sort(
+      (a, b) =>
+        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+    )
+  );
 
   const port = Number(process.env.PORT ?? 8080);
   try {

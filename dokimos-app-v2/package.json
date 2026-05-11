@@ -12,7 +12,6 @@
     "axios": "^1.6.0",
     "debug": "^4.4.3",
     "framer-motion": "^11.0.0",
-    "geist": "^1.7.0",
     "lucide-react": "^0.367.0",
     "next": "^14.2.0",
     "next-auth": "^4.24.13",

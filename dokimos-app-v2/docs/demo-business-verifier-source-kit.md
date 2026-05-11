@@ -33,7 +33,7 @@ Run Next on **8081**. The business shell uses **`verifier-theme`** (see `src/app
 | B5 | Programs → **API** accordion expanded | Per-card **API** chevron — Developer integration block |
 | B6 | **Create workflow** modal | **Create workflow** — full form |
 | B7 | **Edit program** modal | **Edit program** on a card |
-| B8 | Row click → **`VerificationProgressiveModal`** | **Verifications** → click any table row — Layer 1 verdict |
+| B8 | Row click → **`VerificationWizard`** | **Verifications** → click any table row — opens the five-step verification wizard (same as **Verify** in the Actions column) |
 | B9 | Progressive modal **Layer 2** | **How does this work?** |
 | B10 | Progressive modal **Layer 3** | **Technical Details** — stepped proof UI |
 | B11 | Verifications **empty state** | Only if filtered table has zero rows (unlikely with bundled demo data) |
@@ -84,7 +84,7 @@ Run Next on **8081**. The business shell uses **`verifier-theme`** (see `src/app
   - Date: **All dates**, **This week**, **This month**
   - **Export** (downloads CSV)
 - **Table columns:** **Name** | **Email** (lg+) | **Workflow** | **Status** | **Date verified** | **Actions** (**View**)
-- **Row click** (whole row): opens **`VerificationProgressiveModal`** for that request (does **not** open `VerifyCheckModal`).
+- **Row click** (whole row): opens **`VerificationWizard`**. If the row has no attestation yet, the wizard shows a short “No attestation yet” state.
 - **Status badge mapping:** `rowStatus()` — pending >7 days → **Expired** (`PENDING_EXPIRE_MS = 7 days`).
 - **Pagination:** **Showing X–Y of Z** — **Page n / m** — chevron buttons.
 - **Empty:** **No verifications found** — **Verifications will appear here when triggered by your application**
@@ -110,13 +110,18 @@ Run Next on **8081**. The business shell uses **`verifier-theme`** (see `src/app
 - Footer: **Cancel** | **Create workflow** / **Save workflow**
 - **Submit behavior:** **`alert()`** only — **does not** persist to backend. Create alert text includes **`Workflow created.`** and **`workflow: "{programKey}"`** in **`POST /api/request-verification`**.
 
-### `VerificationProgressiveModal` (row click)
+### `VerificationWizard` (row click or **Verify**)
 
-Three layers:
+- **Entry:** **Verifications** tab — click a table row, or the **Verify** / **View** action. This opens the five-step **Independent verification** wizard (signature, hardware, wallet, code, summary).
+- **`VerificationProgressiveModal`** still exists in the repo as an alternate explainer pattern; the live `/business` table is wired to **`VerificationWizard`**, not the progressive modal.
+
+### `VerificationProgressiveModal` (optional component; not the default row action)
+
+If used elsewhere, three layers:
 
 1. **Layer 1 —** heading **Verification Confirmed** (not Instrument Serif on the main title — `text-2xl font-semibold`). Copy: **`{displayName}'s identity has been verified by secure hardware. No manual review needed.`** · **Verified: {localized ts}** · **What was verified:** list · buttons **How does this work?** | **Technical Details**
 2. **Layer 2 —** **How Dokimos Verification Works** — narrative with **Janice** example, **Why this matters for you** bullet list, **← Back**, **Technical Details →**
-3. **Layer 3 —** **Verify This Proof Yourself** — five steps (**Check the Digital Signature**, **Verify the Hardware**, **Check Source Code**, **Verify Build Provenance**, **Confirm Face Match**) with progress bars, **What this proves** toggles, external links where configured — **← Back to Summary**
+3. **Layer 3 —** **Verify This Proof Yourself** — five steps with progress bars — **← Back to Summary**
 
 ### `/integration` flows
 
@@ -291,7 +296,8 @@ All use **`verifierId` `airbnb_prod`**, **Airbnb** / **verify@airbnb.com**.
 | `src/components/verifier/VerifierDashboard.tsx` | All three tabs, modals, program definitions |
 | `src/components/verifier/VerifierLiveRequestPanel.tsx` | Live **Send request** → `POST /api/request-verification` |
 | `src/components/verifier/businessDemoData.ts` | `BUSINESS_DEMO_REQUESTS` |
-| `src/components/verifier/VerificationProgressiveModal.tsx` | Row-click progressive proof UI |
+| `src/components/verifier/VerificationWizard.tsx` | Primary row-click / **Verify** flow — five-step independent verification |
+| `src/components/verifier/VerificationProgressiveModal.tsx` | Alternate layered explainer (not wired as the default row action) |
 | `src/app/integration/page.tsx` | Widget / API / Trust tabs |
 | `src/app/api/request-verification/route.ts` | BFF to Fastify |
 | `src/app/api/requests/verifier/[id]/route.ts` | BFF list by verifier |
@@ -304,4 +310,4 @@ All use **`verifierId` `airbnb_prod`**, **Airbnb** / **verify@airbnb.com**.
 
 ### Revision discipline
 
-When updating verifier copy, search **`VerifierDashboard.tsx`**, **`VerificationProgressiveModal.tsx`**, **`integration/page.tsx`**, and **`businessDemoData.ts`**. When updating API contracts, sync **`src/index.ts`** Zod schemas and Next **`src/app/api/*`** proxies.
+When updating verifier copy, search **`VerifierDashboard.tsx`**, **`VerificationWizard.tsx`**, **`VerificationProgressiveModal.tsx`**, **`integration/page.tsx`**, and **`businessDemoData.ts`**. When updating API contracts, sync **`src/index.ts`** Zod schemas and Next **`src/app/api/*`** proxies.

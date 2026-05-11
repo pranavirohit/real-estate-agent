@@ -11,8 +11,15 @@
 
 - [ ] Run: `curl https://YOUR-TEE-URL/health`
 - [ ] Expect a healthy JSON response (e.g. `status: ok` or equivalent from `src/index.ts`).
+- [ ] Optional: set `EXPOSE_SIGNER_ADDRESS=true` on the TEE host only when debugging; response may include `signer` (TEE wallet address). Compare with **Derived Addresses** on [Eigen Sepolia verifiability](https://verify-sepolia.eigencloud.xyz) for your app ID when validating a deployment.
 - [ ] Check Eigen (or host) logs for startup errors.
 - [ ] Record the public TEE base URL for Next.js `TEE_ENDPOINT`.
+
+### EigenCloud dashboard and live demo checks
+
+- Open `https://verify-sepolia.eigencloud.xyz/app/<YOUR_APP_ID>` in a browser (JavaScript enabled). Confirm **Release / build** details load, not infinite loading states (stale or stopped deployments may fail here).
+- If the compute app was scaled down or replaced, use Eigen operator tooling (`ecloud compute app upgrade` for an existing app ID; avoid creating duplicate deployments unintentionally) so the running digest matches the repo you present.
+- After deploying Next.js, call **`GET /api/health`** on your site: `tee.ok` should be **`true`** when the browser-facing app can reach `TEE_ENDPOINT`.
 
 ## Before deploying Next.js
 
