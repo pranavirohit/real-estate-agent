@@ -5,13 +5,11 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import axios from "axios";
 import { ArrowLeft, Send, Loader2, ShieldCheck, X } from "lucide-react";
-import {
-  fallbackMockListings,
-  type AgentListing,
-} from "@/lib/agentListings";
-import { parseRentalSearchQuery } from "@/lib/parseRentalSearchQuery";
+import { useChat } from "ai/react";
+import type { ToolCall } from "ai";
+import type { Message } from "ai/react";
+import type { AgentListing } from "@/lib/agentListings";
 
-type ChatMsg = { role: "user" | "assistant"; text: string };
 type Phase = "chat" | "awaiting-approval" | "submitted" | "error";
 
 const AGENT_ID = "nostos-rental-agent";
@@ -41,23 +39,14 @@ function ListingCard({
         outlineOffset: "-1px",
       }}
     >
-      <p
-        className="font-semibold leading-snug"
-        style={{ color: "var(--nostos-ink)", fontSize: "0.875rem" }}
-      >
+      <p className="font-semibold leading-snug" style={{ color: "var(--nostos-ink)", fontSize: "0.875rem" }}>
         {listing.address}
       </p>
-      <p
-        className="mt-1 text-sm"
-        style={{ color: "var(--nostos-accent)", fontWeight: 600 }}
-      >
+      <p className="mt-1 text-sm" style={{ color: "var(--nostos-accent)", fontWeight: 600 }}>
         {listing.price}
       </p>
       <p className="mt-1 text-xs" style={{ color: "var(--nostos-ink-secondary)" }}>
-        {[
-          listing.beds && `${listing.beds} bd`,
-          listing.baths && `${listing.baths} ba`,
-        ]
+        {[listing.beds && `${listing.beds} bd`, listing.baths && `${listing.baths} ba`]
           .filter(Boolean)
           .join(" · ")}
       </p>
@@ -78,13 +67,7 @@ function ApprovalSheet({
 }) {
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]"
-        onClick={onCancel}
-        aria-hidden
-      />
-      {/* Sheet */}
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onCancel} aria-hidden />
       <div
         className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl p-6 shadow-2xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-md sm:rounded-3xl sm:bottom-8"
         style={{ background: "var(--nostos-surface)" }}
@@ -97,17 +80,9 @@ function ApprovalSheet({
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full"
             style={{ background: "var(--nostos-accent-soft)" }}
           >
-            <ShieldCheck
-              className="h-5 w-5"
-              style={{ color: "var(--nostos-accent)" }}
-            />
+            <ShieldCheck className="h-5 w-5" style={{ color: "var(--nostos-accent)" }} />
           </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="ml-auto rounded-full p-1 transition-opacity hover:opacity-60"
-            aria-label="Cancel"
-          >
+          <button type="button" onClick={onCancel} className="ml-auto rounded-full p-1 transition-opacity hover:opacity-60" aria-label="Cancel">
             <X className="h-4 w-4" style={{ color: "var(--nostos-muted)" }} />
           </button>
         </div>
@@ -115,10 +90,7 @@ function ApprovalSheet({
         <h2
           id="approval-title"
           className="text-xl leading-snug"
-          style={{
-            fontFamily: "var(--font-nostos-serif), Georgia, serif",
-            color: "var(--nostos-ink)",
-          }}
+          style={{ fontFamily: "var(--font-nostos-serif), Georgia, serif", color: "var(--nostos-ink)" }}
         >
           Confirm your identity to apply
         </h2>
@@ -130,27 +102,16 @@ function ApprovalSheet({
           className="my-5 rounded-xl p-4"
           style={{ background: "var(--nostos-canvas)", border: "1px solid var(--nostos-border)" }}
         >
-          <p
-            className="mb-2 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: "var(--nostos-ink-secondary)" }}
-          >
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--nostos-ink-secondary)" }}>
             They will receive
           </p>
           {["Your full name", "That you are over 18", "Your address"].map((item) => (
             <div key={item} className="flex items-center gap-2 py-1">
-              <div
-                className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-                style={{ background: "var(--nostos-accent)" }}
-              />
-              <p className="text-sm" style={{ color: "var(--nostos-ink)" }}>
-                {item}
-              </p>
+              <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: "var(--nostos-accent)" }} />
+              <p className="text-sm" style={{ color: "var(--nostos-ink)" }}>{item}</p>
             </div>
           ))}
-          <p
-            className="mt-3 text-xs"
-            style={{ color: "var(--nostos-muted)" }}
-          >
+          <p className="mt-3 text-xs" style={{ color: "var(--nostos-muted)" }}>
             They will not receive your ID photo or any other documents.
           </p>
         </div>
@@ -159,12 +120,8 @@ function ApprovalSheet({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-xl border py-3 text-sm font-semibold transition-colors"
-            style={{
-              borderColor: "var(--nostos-border-strong)",
-              color: "var(--nostos-ink)",
-              background: "var(--nostos-surface)",
-            }}
+            className="flex-1 rounded-xl border py-3 text-sm font-semibold"
+            style={{ borderColor: "var(--nostos-border-strong)", color: "var(--nostos-ink)", background: "var(--nostos-surface)" }}
           >
             Cancel
           </button>
@@ -172,12 +129,10 @@ function ApprovalSheet({
             type="button"
             onClick={onApprove}
             disabled={loading}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-colors disabled:opacity-60"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-60"
             style={{ background: "var(--nostos-accent)" }}
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : null}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Approve
           </button>
         </div>
@@ -190,15 +145,6 @@ export default function NostosFind() {
   const { data: session, status } = useSession();
   const userEmail = session?.user?.email ?? null;
 
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<ChatMsg[]>([
-    {
-      role: "assistant",
-      text: "What are you looking for? Tell me the neighborhood, bedrooms, budget, and anything else that matters.",
-    },
-  ]);
-  const [listings, setListings] = useState<AgentListing[]>([]);
-  const [listingsLoading, setListingsLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingListing, setPendingListing] = useState<AgentListing | null>(null);
   const [phase, setPhase] = useState<Phase>("chat");
@@ -206,54 +152,42 @@ export default function NostosFind() {
   const [requestId, setRequestId] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeListing, setActiveListing] = useState<AgentListing | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const stopPoll = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }, []);
-
   useEffect(() => () => stopPoll(), [stopPoll]);
+
+  const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
+    api: "/api/nostos/chat",
+    initialMessages: [
+      {
+        id: "welcome",
+        role: "assistant",
+        content: "What are you looking for? Tell me the neighborhood, bedrooms, and your budget and I'll find you some options.",
+      },
+    ],
+    onError: (err) => console.error("[nostos/chat]", err),
+    onToolCall: async ({ toolCall }: { toolCall: ToolCall<string, unknown> }) => {
+      if (toolCall.toolName === "submitApplication") {
+        const listing = (toolCall.args as { listing: AgentListing }).listing;
+        setSelectedId(listing.id);
+        setActiveListing(listing);
+        setPendingListing(listing);
+        return { status: "pending" };
+      }
+    },
+  });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const pushMsg = (role: ChatMsg["role"], text: string) =>
-    setMessages((m) => [...m, { role, text }]);
-
-  const fetchListings = async (userMessage: string) => {
-    const parsed = parseRentalSearchQuery(userMessage);
-    setListingsLoading(true);
-    try {
-      const params = new URLSearchParams({
-        location: parsed.location,
-        maxPrice: String(parsed.maxPrice),
-        beds: String(parsed.beds),
-      });
-      const res = await fetch(`/api/listings?${params}`);
-      const raw = await res.text();
-      let data: { listings?: AgentListing[] } = {};
-      try { data = raw ? JSON.parse(raw) : {}; } catch { /* ignore */ }
-      const next = Array.isArray(data.listings) && data.listings.length > 0
-        ? data.listings.slice(0, 6)
-        : fallbackMockListings();
-      setListings(next);
-      pushMsg("assistant", `Here ${next.length === 1 ? "is one match" : `are ${next.length} places`} that fit. Tap one to apply.`);
-    } catch {
-      const fallback = fallbackMockListings();
-      setListings(fallback);
-      pushMsg("assistant", "I couldn't reach live listings right now, but here are some demo homes you can apply to.");
-    } finally {
-      setListingsLoading(false);
-    }
-  };
-
   const handleApprove = async () => {
-    if (!userEmail || !pendingListing) return;
+    if (!userEmail || !activeListing) return;
     setApprovalLoading(true);
     try {
       const { data } = await axios.post<{ requestId: string }>("/api/agent-verify", {
@@ -262,10 +196,8 @@ export default function NostosFind() {
         agentId: AGENT_ID,
       });
       setRequestId(data.requestId);
-      setSelectedId(pendingListing.id);
       setPendingListing(null);
       setPhase("awaiting-approval");
-      pushMsg("assistant", "Request sent to Dokimos. Waiting for your approval in your vault...");
     } catch {
       setError("Could not start verification. Try again.");
       setPendingListing(null);
@@ -276,9 +208,7 @@ export default function NostosFind() {
   };
 
   useEffect(() => {
-    if (phase !== "awaiting-approval" || !requestId || !userEmail || !selectedId) return;
-    const listing = listings.find((l) => l.id === selectedId);
-    if (!listing) return;
+    if (phase !== "awaiting-approval" || !requestId || !userEmail || !activeListing) return;
 
     const tick = async () => {
       try {
@@ -289,22 +219,24 @@ export default function NostosFind() {
           stopPoll();
           try {
             const sub = await axios.post("/api/rental-application", {
-              listingId: listing.id,
+              listingId: activeListing.id,
               userId: userEmail,
               attestationRequestId: requestId,
-              listingAddress: listing.address,
+              listingAddress: activeListing.address,
             });
             setReceipt(sub.data.applicationId as string);
             setPhase("submitted");
-            pushMsg("assistant", `Your application to ${listing.address.split(",")[0]} is in. The landlord has your verified identity receipt.`);
+            void append({
+              role: "user",
+              content: `Application submitted successfully to ${activeListing.address}.`,
+            });
           } catch {
             setPhase("error");
-            setError("Verification succeeded but submission failed. Try again.");
+            setError("Verification succeeded but submission failed.");
           }
         } else if (data.status === "denied") {
           stopPoll();
           setPhase("error");
-          pushMsg("assistant", "The request was not approved. You can try again from your vault.");
         }
       } catch { /* keep polling */ }
     };
@@ -312,27 +244,25 @@ export default function NostosFind() {
     void tick();
     pollRef.current = setInterval(() => void tick(), 2500);
     return () => stopPoll();
-  }, [phase, requestId, userEmail, selectedId, listings, stopPoll]);
+  }, [phase, requestId, userEmail, activeListing, stopPoll, append]);
 
-  const onSend = () => {
-    const t = input.trim();
-    if (!t) return;
-    setInput("");
-    pushMsg("user", t);
-    const lower = t.toLowerCase();
-    if (
-      lower.includes("find") ||
-      lower.includes("search") ||
-      lower.includes("looking") ||
-      lower.includes("bedroom") ||
-      lower.includes("brooklyn") ||
-      lower.includes("want")
-    ) {
-      void fetchListings(t);
-    } else {
-      pushMsg("assistant", "Try describing what you're looking for — neighborhood, number of bedrooms, and your budget.");
+  // Extract listings from the latest searchListings tool result in messages (ai v4: toolInvocations array)
+  const latestListings: AgentListing[] = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i] as Message;
+      if (msg.role !== "assistant") continue;
+      const invocations = msg.toolInvocations ?? [];
+      for (const inv of invocations) {
+        if (inv.toolName === "searchListings" && inv.state === "result") {
+          const result = (inv as { result?: { listings?: AgentListing[] } }).result;
+          if (Array.isArray(result?.listings)) return result.listings;
+        }
+      }
     }
-  };
+    return [];
+  })();
+
+  const inputDisabled = isLoading || phase === "awaiting-approval";
 
   if (status === "loading") {
     return (
@@ -347,25 +277,18 @@ export default function NostosFind() {
       <div className="flex min-h-dvh flex-col">
         <nav className="flex items-center gap-4 px-6 py-5 sm:px-10">
           <Link href="/nostos" className="flex items-center gap-2 text-sm" style={{ color: "var(--nostos-ink-secondary)" }}>
-            <ArrowLeft className="h-4 w-4" />
-            Back
+            <ArrowLeft className="h-4 w-4" /> Back
           </Link>
-          <span
-            className="text-xl tracking-tight"
-            style={{ fontFamily: "var(--font-nostos-serif), Georgia, serif", color: "var(--nostos-ink)" }}
-          >
+          <span className="text-xl tracking-tight" style={{ fontFamily: "var(--font-nostos-serif), Georgia, serif", color: "var(--nostos-ink)" }}>
             Nostos
           </span>
         </nav>
         <div className="flex flex-1 flex-col items-center justify-center px-6 pb-20 text-center">
-          <h1
-            className="text-3xl"
-            style={{ fontFamily: "var(--font-nostos-serif), Georgia, serif", color: "var(--nostos-ink)" }}
-          >
+          <h1 className="text-3xl" style={{ fontFamily: "var(--font-nostos-serif), Georgia, serif", color: "var(--nostos-ink)" }}>
             Sign in to continue
           </h1>
           <p className="mt-3 max-w-sm text-sm" style={{ color: "var(--nostos-ink-secondary)" }}>
-            Nostos uses your Dokimos account to verify your identity on your behalf when you apply.
+            Nostos uses your verified identity when you apply, so you never have to send documents to a landlord.
           </p>
           <Link
             href="/login?callbackUrl=/nostos/find"
@@ -379,8 +302,6 @@ export default function NostosFind() {
     );
   }
 
-  const inputDisabled = listingsLoading || phase === "awaiting-approval";
-
   return (
     <>
       <div className="flex min-h-dvh flex-col">
@@ -391,13 +312,9 @@ export default function NostosFind() {
         >
           <div className="flex items-center gap-4">
             <Link href="/nostos" className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-60" style={{ color: "var(--nostos-ink-secondary)" }}>
-              <ArrowLeft className="h-4 w-4" />
-              Home
+              <ArrowLeft className="h-4 w-4" /> Home
             </Link>
-            <span
-              className="text-lg tracking-tight"
-              style={{ fontFamily: "var(--font-nostos-serif), Georgia, serif", color: "var(--nostos-ink)" }}
-            >
+            <span className="text-lg tracking-tight" style={{ fontFamily: "var(--font-nostos-serif), Georgia, serif", color: "var(--nostos-ink)" }}>
               Nostos
             </span>
           </div>
@@ -406,8 +323,7 @@ export default function NostosFind() {
               className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
               style={{ background: "var(--nostos-accent-soft)", color: "var(--nostos-accent)" }}
             >
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Verified
+              <ShieldCheck className="h-3.5 w-3.5" /> Verified
             </div>
             <span className="text-sm" style={{ color: "var(--nostos-ink-secondary)" }}>
               {session?.user?.name?.split(" ")[0] ?? userEmail}
@@ -418,32 +334,72 @@ export default function NostosFind() {
         {/* Chat area */}
         <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 pb-6 pt-6 sm:px-6">
           <div className="flex-1 space-y-4 overflow-y-auto pb-2">
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className="max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed"
-                  style={
-                    m.role === "user"
-                      ? { background: "var(--nostos-accent)", color: "#fff" }
-                      : { background: "var(--nostos-surface)", color: "var(--nostos-ink)", border: "1px solid var(--nostos-border)" }
-                  }
-                >
-                  {m.text}
-                </div>
-              </div>
-            ))}
+            {messages.map((m) => {
+              const msg = m as Message;
 
-            {listingsLoading && (
+              if (msg.role === "user") {
+                return (
+                  <div key={msg.id} className="flex justify-end">
+                    <div
+                      className="max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed"
+                      style={{ background: "var(--nostos-accent)", color: "#fff" }}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Assistant message — ai v4 uses message.content (string) + message.toolInvocations[]
+              const invocations = msg.toolInvocations ?? [];
+              const searchResult = invocations.find(
+                (inv) => inv.toolName === "searchListings" && inv.state === "result"
+              );
+              const listings: AgentListing[] = searchResult
+                ? ((searchResult as { result?: { listings?: AgentListing[] } }).result?.listings ?? [])
+                : [];
+
+              return (
+                <div key={msg.id} className="space-y-3">
+                  {msg.content && (
+                    <div className="flex justify-start">
+                      <div
+                        className="max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed"
+                        style={{ background: "var(--nostos-surface)", color: "var(--nostos-ink)", border: "1px solid var(--nostos-border)" }}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  )}
+                  {listings.length > 0 && (
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {listings.map((l) => (
+                        <ListingCard
+                          key={l.id}
+                          listing={l}
+                          selected={selectedId === l.id}
+                          disabled={inputDisabled}
+                          onSelect={() => {
+                            setSelectedId(l.id);
+                            setActiveListing(l);
+                            setPendingListing(l);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {isLoading && (
               <div className="flex justify-start">
                 <div
                   className="flex items-center gap-2 rounded-2xl px-4 py-3 text-sm"
                   style={{ background: "var(--nostos-surface)", color: "var(--nostos-ink-secondary)", border: "1px solid var(--nostos-border)" }}
                 >
                   <Loader2 className="h-4 w-4 animate-spin" style={{ color: "var(--nostos-accent)" }} />
-                  Searching listings...
+                  Searching...
                 </div>
               </div>
             )}
@@ -455,47 +411,35 @@ export default function NostosFind() {
                   style={{ background: "var(--nostos-surface)", color: "var(--nostos-ink-secondary)", border: "1px solid var(--nostos-border)" }}
                 >
                   <Loader2 className="h-4 w-4 animate-spin" style={{ color: "var(--nostos-accent)" }} />
-                  Waiting for approval in your Dokimos vault...
+                  Waiting for approval in your vault...
                 </div>
               </div>
             )}
 
             {phase === "submitted" && receipt && (
-              <div
-                className="rounded-2xl border p-4"
-                style={{ background: "var(--nostos-accent-soft)", borderColor: "var(--nostos-accent)" }}
-              >
+              <div className="rounded-2xl border p-4" style={{ background: "var(--nostos-accent-soft)", borderColor: "var(--nostos-accent)" }}>
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 flex-shrink-0" style={{ color: "var(--nostos-accent)" }} />
-                  <p className="text-sm font-semibold" style={{ color: "var(--nostos-ink)" }}>
-                    Application submitted
-                  </p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--nostos-ink)" }}>Application submitted</p>
                 </div>
                 <p className="mt-1 text-xs" style={{ color: "var(--nostos-ink-secondary)" }}>
-                  Application ID:{" "}
-                  <span className="font-mono">{receipt}</span>
+                  Application ID: <span className="font-mono">{receipt}</span>
                 </p>
-                <Link
-                  href="/nostos/landlord"
-                  className="mt-3 inline-block text-xs font-semibold underline"
-                  style={{ color: "var(--nostos-accent)" }}
-                >
+                <Link href="/nostos/landlord" className="mt-3 inline-block text-xs font-semibold underline" style={{ color: "var(--nostos-accent)" }}>
                   View in landlord dashboard
                 </Link>
               </div>
             )}
 
-            {error && (
-              <p className="text-center text-sm text-red-600">{error}</p>
-            )}
+            {error && <p className="text-center text-sm text-red-600">{error}</p>}
 
             <div ref={bottomRef} />
           </div>
 
-          {/* Listing cards */}
-          {listings.length > 0 && phase === "chat" && (
+          {/* Fallback listing cards — shown if toolInvocations didn't render inline */}
+          {latestListings.length > 0 && phase === "chat" && !messages.some((m) => (m as Message).toolInvocations?.length) && (
             <div className="my-4 grid gap-3 sm:grid-cols-3">
-              {listings.map((l) => (
+              {latestListings.map((l) => (
                 <ListingCard
                   key={l.id}
                   listing={l}
@@ -503,6 +447,7 @@ export default function NostosFind() {
                   disabled={inputDisabled}
                   onSelect={() => {
                     setSelectedId(l.id);
+                    setActiveListing(l);
                     setPendingListing(l);
                   }}
                 />
@@ -511,30 +456,29 @@ export default function NostosFind() {
           )}
 
           {/* Input */}
-          <div
+          <form
+            onSubmit={handleSubmit}
             className="mt-2 flex gap-2 rounded-2xl border p-2"
             style={{ background: "var(--nostos-surface)", borderColor: "var(--nostos-border)" }}
           >
             <input
               type="text"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") onSend(); }}
+              onChange={handleInputChange}
               placeholder="2 bedroom in Brooklyn under $3,000..."
               disabled={inputDisabled}
               className="flex-1 bg-transparent px-2 text-sm outline-none disabled:opacity-40"
               style={{ color: "var(--nostos-ink)" }}
             />
             <button
-              type="button"
-              onClick={onSend}
+              type="submit"
               disabled={inputDisabled || !input.trim()}
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-white transition-colors disabled:opacity-40"
               style={{ background: "var(--nostos-accent)" }}
             >
               <Send className="h-4 w-4" aria-hidden />
             </button>
-          </div>
+          </form>
         </div>
       </div>
 
@@ -543,7 +487,7 @@ export default function NostosFind() {
         <ApprovalSheet
           listing={pendingListing}
           onApprove={handleApprove}
-          onCancel={() => { setPendingListing(null); setSelectedId(null); }}
+          onCancel={() => { setPendingListing(null); setSelectedId(null); setActiveListing(null); }}
           loading={approvalLoading}
         />
       )}
