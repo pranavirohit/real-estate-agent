@@ -1,0 +1,9 @@
+node_modules
+.env
+.env.local
+.env*.local
+Private_Key
+.git
+.next
+*.log
+npm-debug.log*

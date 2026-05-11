@@ -1,0 +1,44 @@
+@import url("/eigen-landing/css/normalize.css");
+@import url("/eigen-landing/css/components.css");
+@import url("/eigen-landing/css/inter-font.css");
+@import url("/eigen-landing/css/eigen-labs-main.css");
+
+/* Dokimos: Neue Haas fonts are not bundled; Inter (loaded in layout) matches the marketing feel. */
+.eigen-landing-root {
+  font-family: var(--font-eigen-inter), Inter, system-ui, sans-serif;
+}
+
+.eigen-landing-root .heading,
+.eigen-landing-root .heading-2,
+.eigen-landing-root .heading-4,
+.eigen-landing-root .heading-6,
+.eigen-landing-root .heading-7,
+.eigen-landing-root .heading-8,
+.eigen-landing-root .heading-9,
+.eigen-landing-root .mission-text,
+.eigen-landing-root .mission-text-2,
+.eigen-landing-root .how-text,
+.eigen-landing-root .we-text,
+.eigen-landing-root .we-text-1,
+.eigen-landing-root .work-text,
+.eigen-landing-root .perks-text,
+.eigen-landing-root .accordion-header-2 {
+  font-family: var(--font-eigen-inter), Inter, system-ui, sans-serif !important;
+}
+
+.eigen-hero-visual {
+  min-height: 280px;
+  width: 100%;
+  max-width: 620px;
+  aspect-ratio: 16 / 10;
+  background: #111;
+  position: relative;
+  overflow: hidden;
+}
+
+.eigen-hero-visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

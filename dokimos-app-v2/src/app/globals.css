@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Design tokens (inlined — avoids @import resolution issues that can prevent Tailwind/CSS from applying).
+ */
+:root {
+  --dokimos-bg-primary: #ffffff;
+  --dokimos-bg-secondary: #f9fafb;
+  --dokimos-bg-tertiary: #f3f4f6;
+  --dokimos-product-canvas: #fafaf9;
+  --dokimos-text-primary: #1a1a1a;
+  --dokimos-text-secondary: #666666;
+  --dokimos-text-tertiary: #999999;
+  /** Product accent (teal) — buttons, tabs, links in /app + onboarding */
+  --dokimos-accent: #0d9488;
+  --dokimos-accent-hover: #0f766e;
+  --dokimos-accent-pressed: #115e59;
+  --dokimos-accent-soft: #f0fdfa;
+  --dokimos-accent-success: #059669;
+  --dokimos-accent-primary: #1a1a1a;
+  --dokimos-border-subtle: #e5e7eb;
+  --dokimos-border-strong: #d1d5db;
+  --font-instrument-sans: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/** Optional title density for business dashboard pages using `DokimosPageTitle`. */
+.dokimos-verifier-page-title {
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.dokimos-verifier-page-title + p,
+.dokimos-verifier-subtitle {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+html,
+body {
+  font-family: var(--font-geist-sans), system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--dokimos-bg-secondary);
+  color: var(--dokimos-text-primary);
+}
+
+/* Intro screen pill marquee — CSS avoids Framer repeat/hydration quirks */
+@keyframes dokimos-pills-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% / 3));
+  }
+}
+
+.dokimos-pills-track {
+  width: max-content;
+  animation: dokimos-pills-marquee 22s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dokimos-pills-track {
+    animation: none;
+  }
+}

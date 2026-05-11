@@ -1,0 +1,7 @@
+# Dokimos repository (AI / contributor hints)
+
+- **Canonical frontend:** `dokimos-app-v2/` (Next.js 14 App Router). Run `npm run dev` from that folder (port **8081**). Do not use `dokimos-app/` for new work unless the task explicitly says “legacy”.
+- **Canonical TEE / API server:** repo root `src/index.ts` (Fastify). Default port **8080**.
+- **Legacy:** `dokimos-app/` and root-level prototype `app/` are not the product UI unless labeled legacy.
+- **Product accent / layout:** follow `dokimos-app-v2/tailwind.config.js`, `src/app/globals.css`, and shared layout helpers under `dokimos-app-v2/src/lib/`.
+- **Verification docs:** `dokimos-app-v2/docs/VERIFICATION_FLOW.md` and `DEPLOYMENT.md` at repo root.
