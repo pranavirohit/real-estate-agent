@@ -6,6 +6,7 @@ import axios from "axios";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import type { RentalApplicationRecord, VerificationRequest } from "@/types/dokimos";
 import VerificationWizard from "@/components/verifier/VerificationWizard";
+import { MOCK_RENTAL_LISTINGS } from "@/lib/agentListings";
 
 type EnrichedApp = RentalApplicationRecord & { tourDate?: string };
 
@@ -41,44 +42,84 @@ function propertyMeta(address: string): { price: string; beds: string } | null {
   return PROPERTY_META.find((m) => m.keywords.some((k) => lower.includes(k))) ?? null;
 }
 
-const DEMO_PADDING: EnrichedApp[] = [
+/** Wythe / Nostrand / Flatbush — filled when the TEE has no row for that listing yet. */
+const SHOWCASE_CORE_DEMOS: EnrichedApp[] = MOCK_RENTAL_LISTINGS.map((l, i) => {
+  const applicants = [
+    { name: "Janice Sample", email: "janice.sample802@gmail.com" },
+    { name: "Sara Kim", email: "sara.kim@example.com" },
+    { name: "Marcus Chen", email: "marcus.chen@example.com" },
+  ] as const;
+  const a = applicants[i] ?? applicants[0];
+  const baseDay = 14 + i;
+  return {
+    applicationId: `showcase-core-${l.id}`,
+    listingId: `showcase-${l.id}`,
+    listingAddress: `${l.title}, ${l.neighborhood}`,
+    userId: a.email,
+    applicantName: a.name,
+    attestationRequestId: `showcase-core-${l.id}`,
+    attestation: null,
+    status: "submitted" as const,
+    submittedAt: new Date(`2026-05-${String(baseDay).padStart(2, "0")}T16:00:00Z`).toISOString(),
+    tourDate: new Date(`2026-05-${String(21 + i).padStart(2, "0")}T${14 + i}:00:00Z`).toISOString(),
+  };
+});
+
+/** Three extra Brooklyn listings — always shown unless a live application exists for the same address. */
+const SHOWCASE_EXTRA_DEMOS: EnrichedApp[] = [
   {
-    applicationId: "demo-1",
-    listingId: "demo-1",
+    applicationId: "showcase-extra-marcy",
+    listingId: "showcase-marcy",
     listingAddress: "88 Marcy Ave, Apt 5C, Williamsburg, Brooklyn",
     userId: "alex.rivera@example.com",
     applicantName: "Alex Rivera",
-    attestationRequestId: "demo-1",
+    attestationRequestId: "showcase-extra-marcy",
     attestation: null,
     status: "submitted",
     submittedAt: new Date("2026-05-10T14:00:00Z").toISOString(),
-    tourDate: new Date("2026-05-18T15:00:00Z").toISOString(), // 11:00 AM ET
+    tourDate: new Date("2026-05-24T15:00:00Z").toISOString(), // 11:00 AM ET
   },
   {
-    applicationId: "demo-2",
-    listingId: "demo-2",
+    applicationId: "showcase-extra-gates",
+    listingId: "showcase-gates",
     listingAddress: "412 Gates Ave, Apt 2R, Bedford-Stuyvesant, Brooklyn",
     userId: "marcus.webb@example.com",
     applicantName: "Marcus Webb",
-    attestationRequestId: "demo-2",
+    attestationRequestId: "showcase-extra-gates",
     attestation: null,
     status: "submitted",
     submittedAt: new Date("2026-05-09T11:00:00Z").toISOString(),
-    tourDate: new Date("2026-05-19T14:00:00Z").toISOString(), // 10:00 AM ET
+    tourDate: new Date("2026-05-25T14:00:00Z").toISOString(), // 10:00 AM ET
   },
   {
-    applicationId: "demo-3",
-    listingId: "demo-3",
+    applicationId: "showcase-extra-prospect",
+    listingId: "showcase-prospect",
     listingAddress: "55 Prospect Park SW, Apt 6A, Park Slope, Brooklyn",
     userId: "priya.nair@example.com",
     applicantName: "Priya Nair",
-    attestationRequestId: "demo-3",
+    attestationRequestId: "showcase-extra-prospect",
     attestation: null,
     status: "submitted",
     submittedAt: new Date("2026-05-08T09:30:00Z").toISOString(),
-    tourDate: new Date("2026-05-20T13:30:00Z").toISOString(), // 9:30 AM ET
+    tourDate: new Date("2026-05-26T13:30:00Z").toISOString(), // 9:30 AM ET
   },
 ];
+
+function normalizeListingAddress(addr: string): string {
+  return addr.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Stable grid order: three primary listings, then Marcy / Gates / Prospect. */
+const SHOWCASE_GRID_ORDER_KEYS: string[] = [
+  ...SHOWCASE_CORE_DEMOS.map((r) => normalizeListingAddress(r.listingAddress)),
+  ...SHOWCASE_EXTRA_DEMOS.map((r) => normalizeListingAddress(r.listingAddress)),
+];
+
+function showcaseGridOrderIndex(address: string): number {
+  const k = normalizeListingAddress(address);
+  const i = SHOWCASE_GRID_ORDER_KEYS.indexOf(k);
+  return i === -1 ? SHOWCASE_GRID_ORDER_KEYS.length + 1 : i;
+}
 
 /** Hide stale sandbox / QA rows that sometimes linger in the TEE in-memory store. */
 function isSandboxListingAddress(address: string): boolean {
@@ -109,10 +150,16 @@ function dedupeByListingAndTenant(apps: EnrichedApp[]): EnrichedApp[] {
 function mergeWithDemoPadding(real: EnrichedApp[]): EnrichedApp[] {
   const filtered = real.filter((r) => !isSandboxListingAddress(r.listingAddress));
   const deduped = dedupeByListingAndTenant(filtered);
-  if (deduped.length === 0) {
-    return DEMO_PADDING.slice(0, 6);
-  }
-  return deduped;
+  const covered = new Set(deduped.map((r) => normalizeListingAddress(r.listingAddress)));
+
+  const coreFillers = SHOWCASE_CORE_DEMOS.filter(
+    (d) => !covered.has(normalizeListingAddress(d.listingAddress))
+  );
+  const extraFillers = SHOWCASE_EXTRA_DEMOS.filter(
+    (d) => !covered.has(normalizeListingAddress(d.listingAddress))
+  );
+
+  return [...deduped, ...coreFillers, ...extraFillers];
 }
 
 function formatTourDay(iso: string): string {
@@ -362,7 +409,7 @@ export default function NostosLandlord() {
     return () => clearInterval(t);
   }, [fetchApps]);
 
-  // Group applications by listing address, sorted by earliest tour date
+  // Group applications by listing address; canonical six-property grid order, then tour date tie-break.
   const allApps = mergeWithDemoPadding(rows);
   const groups = Object.entries(
     allApps.reduce<Record<string, EnrichedApp[]>>((acc, app) => {
@@ -371,9 +418,12 @@ export default function NostosLandlord() {
       acc[key].push(app);
       return acc;
     }, {})
-  ).sort(([, a], [, b]) => {
-    const aDate = a.find((r) => r.tourDate)?.tourDate ?? a[0].submittedAt;
-    const bDate = b.find((r) => r.tourDate)?.tourDate ?? b[0].submittedAt;
+  ).sort(([addrA, appsA], [addrB, appsB]) => {
+    const oa = showcaseGridOrderIndex(addrA);
+    const ob = showcaseGridOrderIndex(addrB);
+    if (oa !== ob) return oa - ob;
+    const aDate = appsA.find((r) => r.tourDate)?.tourDate ?? appsA[0].submittedAt;
+    const bDate = appsB.find((r) => r.tourDate)?.tourDate ?? appsB[0].submittedAt;
     return new Date(aDate).getTime() - new Date(bDate).getTime();
   });
 
