@@ -12,10 +12,18 @@ const nextConfig = {
     return config;
   },
   async redirects() {
-    return [
+    /** When set on Vercel (e.g. NOSTOS_PRIMARY_SITE=1), `/` redirects to `/nostos` so the root matches Nostos branding. Local Dokimos marketing stays at `/` unless this env is set at build time. */
+    const list = [
       { source: "/notos", destination: "/nostos", permanent: false },
       { source: "/notos/:path*", destination: "/nostos/:path*", permanent: false },
     ];
+    const nostosPrimary =
+      process.env.NOSTOS_PRIMARY_SITE === "1" ||
+      process.env.NOSTOS_PRIMARY_SITE === "true";
+    if (nostosPrimary) {
+      list.unshift({ source: "/", destination: "/nostos", permanent: false });
+    }
+    return list;
   },
   async headers() {
     const isDev = process.env.NODE_ENV !== "production";
