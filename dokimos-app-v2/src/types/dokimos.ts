@@ -48,6 +48,8 @@ export interface RentalApplicationRecord {
   listingAddress: string;
   userId: string;
   applicantName?: string;
+  /** Present when booked via Nostos or enriched from tourDateStore */
+  tourDate?: string;
   attestationRequestId: string;
   attestation: unknown;
   status: "submitted";

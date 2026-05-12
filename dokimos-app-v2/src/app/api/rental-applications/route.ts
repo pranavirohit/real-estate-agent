@@ -18,10 +18,15 @@ export async function GET() {
     // Enrich each record with its scheduled tour date if we have one stored.
     const enriched = records.map((rec) => {
       const r = rec as Record<string, unknown>;
-      const tourDate =
+      const teeTour =
+        typeof r.tourDate === "string" && r.tourDate.trim() !== ""
+          ? r.tourDate.trim()
+          : undefined;
+      const storedTour =
         typeof r.applicationId === "string"
           ? getTourDate(r.applicationId)
           : undefined;
+      const tourDate = teeTour ?? storedTour;
       return tourDate ? { ...r, tourDate } : r;
     });
 

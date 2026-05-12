@@ -25,6 +25,8 @@ type RentalApplication = {
   listingAddress: string;
   userId: string;
   applicantName?: string;
+  /** ISO date string or human-readable slot from Nostos booking flow */
+  tourDate?: string;
   attestationRequestId: string;
   attestation: unknown;
   status: 'submitted';
@@ -1921,7 +1923,11 @@ async function main() {
     const body = request.body as {
       tenantEmail?: string;
       tenantName?: string;
-      listings?: Array<{ listingId: string; listingAddress: string }>;
+      listings?: Array<{
+        listingId: string;
+        listingAddress: string;
+        tourDate?: string;
+      }>;
     };
 
     if (!body.tenantEmail || !Array.isArray(body.listings) || body.listings.length === 0) {
@@ -1970,6 +1976,9 @@ async function main() {
         listingAddress: listing.listingAddress,
         userId: userEmail,
         applicantName: body.tenantName ?? user.name,
+        ...(typeof listing.tourDate === 'string' && listing.tourDate.trim()
+          ? { tourDate: listing.tourDate.trim() }
+          : {}),
         attestationRequestId: requestId,
         attestation,
         status: 'submitted',
