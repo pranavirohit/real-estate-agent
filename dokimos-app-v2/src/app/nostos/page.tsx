@@ -45,17 +45,16 @@ export default function NostosLanding() {
               color: "var(--nostos-ink)",
             }}
           >
-            Find apartments and book tours&mdash;without the usual runaround.
+            The rental search that listens, then lines up tours around when you&rsquo;re free.
           </h1>
 
           <p
-            className="mt-7 max-w-lg text-base leading-relaxed"
+            className="mt-7 max-w-3xl text-base leading-relaxed"
             style={{ color: "var(--nostos-ink-secondary)" }}
           >
-            Describe what you want in plain language. Nostos surfaces listings, helps coordinate tour
-            times with landlords, and packages your application when you&rsquo;re ready. Identity
-            verification runs once in the background, so you&rsquo;re not re-uploading IDs for every
-            listing.
+            Tell us what you&rsquo;re looking for in plain language. Nostos finds listings that fit,
+            coordinates tours when you&rsquo;re free, and verifies you once so you&rsquo;re not stuck redoing
+            the same steps for every landlord.
           </p>
 
           <div className="mt-10 flex flex-col gap-3 sm:flex-row">
@@ -85,9 +84,9 @@ export default function NostosLanding() {
             </Link>
           </div>
 
-          <p className="mt-7 max-w-lg text-xs leading-relaxed" style={{ color: "var(--nostos-muted)" }}>
-            Verified once in secure hardware (EigenCloud). Landlords receive cryptographic proof they can
-            check themselves&mdash;not a pile of your raw documents.
+          <p className="mt-7 max-w-3xl text-xs leading-relaxed" style={{ color: "var(--nostos-muted)" }}>
+            EigenCloud-backed hardware keeps verification off scattered email threads. One enrollment,
+            many applications, with visibility into what landlords received.
           </p>
 
           {/* How it works strip */}
@@ -112,7 +111,7 @@ export default function NostosLanding() {
               {
                 step: "03",
                 title: "Apply once, verified once",
-                body: "When you apply, identity runs in secure hardware (EigenCloud). Landlords see cryptographic proof they can verify independently.",
+                body: "When you apply, Nostos runs identity in secure hardware (EigenCloud) so you are not repeating uploads. Landlords get only what they need, and you keep visibility into what was shared.",
               },
             ].map((item) => (
               <div key={item.step}>

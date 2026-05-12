@@ -11,7 +11,7 @@ const hedvig = Hedvig_Letters_Serif({
 export const metadata = {
   title: "Nostos — NYC rentals, tours, and applications",
   description:
-    "Find apartments in New York, coordinate tours with help from an assistant, and apply when you are ready. Identity verified once with EigenCloud-backed proof for landlords.",
+    "Tell Nostos what you want in plain language: matching listings, tours when you're free, and one-and-done verification instead of repeating paperwork for every landlord. Secure verification powered by EigenCloud.",
 };
 
 export default function NostosLayout({ children }: { children: ReactNode }) {
