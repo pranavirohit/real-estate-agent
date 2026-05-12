@@ -273,6 +273,8 @@ function ApprovalSheet({
                 </p>
                 <Link
                   href="/app/vault"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="mt-3 inline-block text-sm font-semibold underline"
                   style={{ color: "var(--nostos-accent)" }}
                 >

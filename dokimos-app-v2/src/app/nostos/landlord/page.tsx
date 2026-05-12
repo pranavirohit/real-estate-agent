@@ -648,44 +648,18 @@ export default function NostosLandlord() {
 
                       {/* Applicants */}
                       <div className="space-y-3 px-4 pb-4">
-                        <p
-                          className="text-xs font-semibold uppercase"
-                          style={{ color: "var(--nostos-muted)", letterSpacing: "0.1em" }}
-                        >
-                          {apps.some((a) => isPendingApplicantSlot(a))
-                            ? "Awaiting applicant"
-                            : apps.length === 1
-                              ? "1 Applicant"
-                              : `${apps.length} Applicants`}
-                        </p>
+                        {!apps.some((a) => isPendingApplicantSlot(a)) && (
+                          <p
+                            className="text-xs font-semibold uppercase"
+                            style={{ color: "var(--nostos-muted)", letterSpacing: "0.1em" }}
+                          >
+                            {apps.length === 1 ? "1 Applicant" : `${apps.length} Applicants`}
+                          </p>
+                        )}
 
                         {apps.map((app) => {
                           if (isPendingApplicantSlot(app)) {
-                            return (
-                              <div
-                                key={app.applicationId}
-                                className="rounded-xl p-3 text-left"
-                                style={{
-                                  background: "var(--nostos-canvas)",
-                                  border: "1px solid var(--nostos-border)",
-                                }}
-                              >
-                                <p className="text-sm leading-snug" style={{ color: "var(--nostos-ink-secondary)" }}>
-                                  No applicant yet. Complete the renter workflow for this listing to show Janice Sample with her tour time.
-                                </p>
-                                <div className="mt-2.5">
-                                  <p
-                                    className="mb-1 text-xs font-semibold uppercase"
-                                    style={{ color: "var(--nostos-muted)", letterSpacing: "0.08em" }}
-                                  >
-                                    Upcoming Tour
-                                  </p>
-                                  <p className="text-xs italic" style={{ color: "var(--nostos-muted)" }}>
-                                    To be scheduled
-                                  </p>
-                                </div>
-                              </div>
-                            );
+                            return null;
                           }
 
                           const name = app.applicantName ?? app.userId;
