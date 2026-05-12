@@ -45,15 +45,17 @@ export default function NostosLanding() {
               color: "var(--nostos-ink)",
             }}
           >
-            The last time you&rsquo;ll send your passport to a stranger.
+            Find apartments and book tours&mdash;without the usual runaround.
           </h1>
 
           <p
-            className="mt-7 max-w-sm text-base leading-relaxed"
+            className="mt-7 max-w-lg text-base leading-relaxed"
             style={{ color: "var(--nostos-ink-secondary)" }}
           >
-            Verify your identity once. Apply to any apartment in seconds.
-            Landlords get proof. You keep your documents.
+            Describe what you want in plain language. Nostos surfaces listings, helps coordinate tour
+            times with landlords, and packages your application when you&rsquo;re ready. Identity
+            verification runs once in the background, so you&rsquo;re not re-uploading IDs for every
+            listing.
           </p>
 
           <div className="mt-10 flex flex-col gap-3 sm:flex-row">
@@ -83,9 +85,9 @@ export default function NostosLanding() {
             </Link>
           </div>
 
-          <p className="mt-7 text-xs" style={{ color: "var(--nostos-muted)" }}>
-            Identity secured by verifiable hardware &mdash; no documents stored,
-            no middlemen trusted.
+          <p className="mt-7 max-w-lg text-xs leading-relaxed" style={{ color: "var(--nostos-muted)" }}>
+            Verified once in secure hardware (EigenCloud). Landlords receive cryptographic proof they can
+            check themselves&mdash;not a pile of your raw documents.
           </p>
 
           {/* How it works strip */}
@@ -99,18 +101,18 @@ export default function NostosLanding() {
             {[
               {
                 step: "01",
-                title: "Verify once",
-                body: "Complete a one-time ID check. Your documents are processed in secure hardware and never stored.",
+                title: "Describe what you want",
+                body: "Browse NYC rentals or tell the assistant your budget, neighborhoods, and move date. Shortlist units that actually fit.",
               },
               {
                 step: "02",
-                title: "Search and apply",
-                body: "Tell us what you're looking for. When you apply, we confirm your identity in the background.",
+                title: "Tours, coordinated for you",
+                body: "The agent proposes times, aligns with landlords, and cuts down email back-and-forth so you get on the calendar faster.",
               },
               {
                 step: "03",
-                title: "Landlords verify independently",
-                body: "Every application includes a cryptographic proof landlords can check themselves, without calling us.",
+                title: "Apply once, verified once",
+                body: "When you apply, identity runs in secure hardware (EigenCloud). Landlords see cryptographic proof they can verify independently.",
               },
             ].map((item) => (
               <div key={item.step}>
