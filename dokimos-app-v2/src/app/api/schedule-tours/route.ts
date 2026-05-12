@@ -400,13 +400,6 @@ export async function POST(req: NextRequest) {
   const appBaseUrl = process.env.NEXTAUTH_URL?.trim() ?? "http://localhost:8081";
   const resolveRecipient = (addr: string) => toOverride ?? addr;
 
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "Email service is not configured (RESEND_API_KEY missing)." },
-      { status: 503 }
-    );
-  }
-
   let body: unknown;
   try {
     body = await req.json();
@@ -429,11 +422,32 @@ export async function POST(req: NextRequest) {
   }
 
   const displayName = tenantName ?? tenantEmail.split("@")[0];
+  const slots = pickTourSlots(tours.length, availabilityNote);
+  const scheduledTours: ScheduledTour[] = [];
+  const warnings: string[] = [];
+
+  if (!apiKey) {
+    console.warn(
+      "[schedule-tours] RESEND_API_KEY missing — skipping email sends; returning scheduledTours only"
+    );
+    warnings.push("emails_skipped_resend_api_key_missing");
+    for (let i = 0; i < tours.length; i++) {
+      const tour = tours[i];
+      const slot = slots[i];
+      scheduledTours.push({
+        address: tour.listingAddress,
+        listingId: tour.listingId,
+        dateLabel: formatDate(slot),
+        timeLabel: formatTime(slot),
+        viewingDate: slot.toISOString(),
+      });
+    }
+    return NextResponse.json({ scheduledTours, warnings });
+  }
+
   const resend = new Resend(apiKey);
   const orgEmail = fromEmail.includes("<") ? fromEmail.split("<")[1].replace(">", "") : fromEmail;
 
-  const slots = pickTourSlots(tours.length, availabilityNote);
-  const scheduledTours: ScheduledTour[] = [];
   const errors: string[] = [];
 
   for (let i = 0; i < tours.length; i++) {

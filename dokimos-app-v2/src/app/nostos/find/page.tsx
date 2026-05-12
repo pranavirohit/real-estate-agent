@@ -47,6 +47,14 @@ function extractScheduledToursFromMessage(msg: Message): ScheduledTour[] {
     for (const part of parts) {
       if (!part || typeof part !== "object") continue;
       const p = part as Record<string, unknown>;
+      // Alternate AI SDK stream shape
+      if (p.type === "tool-result" && p.toolName === "scheduleTours") {
+        const r = p.result;
+        if (r && typeof r === "object") {
+          const tours = (r as Record<string, unknown>).scheduledTours;
+          if (Array.isArray(tours)) return tours as ScheduledTour[];
+        }
+      }
       if (p.type !== "tool-invocation") continue;
       const ti = p.toolInvocation as Record<string, unknown> | undefined;
       if (!ti || ti.toolName !== "scheduleTours" || ti.state !== "result") continue;
