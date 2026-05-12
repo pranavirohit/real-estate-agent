@@ -50,9 +50,9 @@ function computeAttributesHash(
   return keccak256(stringToHex(stableStringifyAttributes(attrs)));
 }
 
-/** Default Eigen app id embedded in attestation responses. */
+/** Eigen app ID embedded in attestation responses. Set EIGEN_APP_ID env var on deploy. */
 const DEFAULT_EIGEN_APP_ID =
-  '0x00658e70d8880910277592b3b41f9dd3fe4ce5fd';
+  process.env.EIGEN_APP_ID ?? '0x0D8acDA0F105E926c362893DB2c3e6bC9473E436';
 
 type DokimosAttestationInput = {
   message: string;
@@ -485,7 +485,7 @@ async function seedDemoAccounts(account: HDAccount): Promise<void> {
   const demoHash = await bcrypt.hash('demo1234', 10);
   /** Four consumer demo personas — match dokimos-app-v2 demo login + verifier "Send request" UI. */
   const demoConsumers: { email: string; name: string; userId: string }[] = [
-    { email: 'janice.sample@example.com', name: 'Janice Sample', userId: 'user_janice' },
+    { email: 'janice.sample802@gmail.com', name: 'Janice Sample', userId: 'user_janice' },
     { email: 'marcus.chen@example.com', name: 'Marcus Chen', userId: 'user_marcus' },
     { email: 'sara.kim@example.com', name: 'Sara Kim', userId: 'user_sara' },
     { email: 'alex.rivera@example.com', name: 'Alex Rivera', userId: 'user_alex' },
@@ -603,7 +603,7 @@ async function seedVerifierDashboardDemos(account: HDAccount): Promise<void> {
 
 /** Populates in-memory requests so the user app “Where you’ve verified” screen has demo rows. */
 async function seedDemoVerificationRequests(account: HDAccount): Promise<void> {
-  const userEmail = 'janice.sample@example.com';
+  const userEmail = 'janice.sample802@gmail.com';
   const now = Date.now();
   const day = 86400000;
 
