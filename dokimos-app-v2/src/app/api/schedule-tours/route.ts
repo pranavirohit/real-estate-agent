@@ -3,12 +3,15 @@ import { Resend } from "resend";
 
 export interface TourRequest {
   listingAddress: string;
+  /** When present (demo/API listings), used to align TEE rows with landlord showcase addresses. */
+  listingId?: string;
   landlordEmail?: string;
   listingUrl?: string;
 }
 
 export interface ScheduledTour {
   address: string;
+  listingId?: string;
   dateLabel: string;
   timeLabel: string;
   viewingDate: string;
@@ -502,6 +505,7 @@ export async function POST(req: NextRequest) {
 
     scheduledTours.push({
       address: tour.listingAddress,
+      listingId: tour.listingId,
       dateLabel,
       timeLabel,
       viewingDate: slot.toISOString(),

@@ -206,6 +206,7 @@ export async function POST(req: NextRequest) {
           const toursToSchedule = listings.slice(0, tourCount);
           const tourRequests: TourRequest[] = toursToSchedule.map((l) => ({
             listingAddress: l.address,
+            listingId: l.id,
             landlordEmail: l.landlordEmail,
             listingUrl: l.url || undefined,
           }));
@@ -221,7 +222,17 @@ export async function POST(req: NextRequest) {
               return { success: false, error: err.error ?? `HTTP ${res.status}`, scheduledTours: [] };
             }
             const data = (await res.json()) as { scheduledTours: ScheduledTour[] };
-            return { success: true, scheduledTours: data.scheduledTours, listings: toursToSchedule };
+            const mockById = new Map(fallbackMockListings().map((l) => [l.id, l.address]));
+            const enriched: ScheduledTour[] = data.scheduledTours.map((st, i) => {
+              const row = toursToSchedule[i];
+              const canon = row?.id ? mockById.get(row.id) : undefined;
+              return {
+                ...st,
+                listingId: row?.id,
+                address: canon ?? row?.address ?? st.address,
+              };
+            });
+            return { success: true, scheduledTours: enriched, listings: toursToSchedule };
           } catch (e) {
             return { success: false, error: e instanceof Error ? e.message : "Unknown error", scheduledTours: [] };
           }

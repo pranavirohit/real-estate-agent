@@ -6,7 +6,8 @@ import { getTeeEndpoint } from "@/lib/teeEndpoint";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { listingId, userId, attestationRequestId, listingAddress } = body;
+    const { listingId, userId, attestationRequestId, listingAddress, tourDate } =
+      body as Record<string, unknown>;
 
     if (
       !listingId ||
@@ -25,14 +26,19 @@ export async function POST(request: NextRequest) {
 
     const TEE_ENDPOINT = getTeeEndpoint();
 
+    const payload: Record<string, unknown> = {
+      listingId,
+      userId,
+      attestationRequestId,
+      listingAddress,
+    };
+    if (typeof tourDate === "string" && tourDate.trim() !== "") {
+      payload.tourDate = tourDate.trim();
+    }
+
     const response = await axios.post(
       `${TEE_ENDPOINT}/api/rental-application`,
-      {
-        listingId,
-        userId,
-        attestationRequestId,
-        listingAddress,
-      },
+      payload,
       {
         timeout: 10000,
         headers: { "Content-Type": "application/json" },

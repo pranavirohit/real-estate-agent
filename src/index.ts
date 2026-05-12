@@ -332,6 +332,7 @@ const rentalApplicationBodySchema = z.object({
   userId: z.string().email(),
   attestationRequestId: z.string().min(1).max(128),
   listingAddress: z.string().min(1).max(500),
+  tourDate: z.string().max(500).optional(),
 });
 
 function requestedAttributesForAgentWorkflow(workflowId: string): string[] {
@@ -1867,7 +1868,7 @@ async function main() {
         .code(400)
         .send({ error: 'Invalid input', details: parsed.error.flatten() });
     }
-    const { listingId, userId, attestationRequestId, listingAddress } =
+    const { listingId, userId, attestationRequestId, listingAddress, tourDate } =
       parsed.data;
     const userEmail = normalizeConsumerEmail(userId);
 
@@ -1892,6 +1893,9 @@ async function main() {
       listingAddress,
       userId: userEmail,
       applicantName: u?.name,
+      ...(typeof tourDate === 'string' && tourDate.trim()
+        ? { tourDate: tourDate.trim() }
+        : {}),
       attestationRequestId,
       attestation: req.attestation,
       status: 'submitted',
@@ -1914,15 +1918,14 @@ async function main() {
   );
 
   /**
-   * Nostos AI scheduling path: creates pre-approved rental applications for
-   * every listing in one call.  Called by the Next.js /api/schedule-tours
-   * route after tour emails are sent.  Synthesises a demo attestation so
-   * the landlord dashboard shows the applicant immediately.
+   * Nostos batch booking: one vault-approved verification request, many listings.
+   * Attestation is copied from the existing approved request (same rules as POST /api/rental-application).
    */
   server.post('/api/nostos/book', async (request, reply) => {
     const body = request.body as {
       tenantEmail?: string;
       tenantName?: string;
+      attestationRequestId?: string;
       listings?: Array<{
         listingId: string;
         listingAddress: string;
@@ -1930,8 +1933,16 @@ async function main() {
       }>;
     };
 
-    if (!body.tenantEmail || !Array.isArray(body.listings) || body.listings.length === 0) {
-      return reply.code(400).send({ error: 'tenantEmail and listings[] are required.' });
+    const attestationRequestId = body.attestationRequestId?.trim();
+    if (
+      !body.tenantEmail ||
+      !attestationRequestId ||
+      !Array.isArray(body.listings) ||
+      body.listings.length === 0
+    ) {
+      return reply
+        .code(400)
+        .send({ error: 'tenantEmail, attestationRequestId, and listings[] are required.' });
     }
 
     const userEmail = normalizeConsumerEmail(body.tenantEmail);
@@ -1940,36 +1951,26 @@ async function main() {
       return reply.code(404).send({ error: `User not found: ${userEmail}` });
     }
 
+    const verReq = requests.get(attestationRequestId);
+    if (!verReq) {
+      return reply.code(404).send({ error: 'Verification request not found' });
+    }
+    if (normalizeConsumerEmail(verReq.userEmail) !== userEmail) {
+      return reply
+        .code(403)
+        .send({ error: 'Verification request does not match tenant' });
+    }
+    if (verReq.status !== 'approved' || !verReq.attestation) {
+      return reply
+        .code(400)
+        .send({ error: 'Verification not completed or missing attestation' });
+    }
+
+    const timestamp = new Date().toISOString();
     const results: Array<{ applicationId: string; listingAddress: string }> = [];
 
     for (const listing of body.listings) {
-      const timestamp = new Date().toISOString();
-      const attrs: Record<string, string | boolean> = {
-        name: user.name,
-        ageOver18: true,
-        notExpired: true,
-        address: 'Confirmed',
-      };
-
-      const attestation = await buildDemoAttestation(account, attrs, timestamp);
-
-      const requestId = `req_nostos_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const verReq: VerificationRequest = {
-        requestId,
-        verifierId: RENTAL_REAL_ESTATE_VERIFIER_ID,
-        verifierName: 'Brooklyn Properties LLC',
-        verifierEmail: 'broker@brooklyn-properties.demo',
-        userEmail,
-        requestedAttributes: ['name', 'ageOver18', 'address', 'notExpired'],
-        workflow: 'rental_application',
-        status: 'approved',
-        createdAt: timestamp,
-        completedAt: timestamp,
-        attestation,
-      };
-      requests.set(requestId, verReq);
-
-      const applicationId = `app_nostos_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const applicationId = `app_nostos_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
       const row: RentalApplication = {
         applicationId,
         listingId: listing.listingId,
@@ -1979,8 +1980,8 @@ async function main() {
         ...(typeof listing.tourDate === 'string' && listing.tourDate.trim()
           ? { tourDate: listing.tourDate.trim() }
           : {}),
-        attestationRequestId: requestId,
-        attestation,
+        attestationRequestId,
+        attestation: verReq.attestation,
         status: 'submitted',
         submittedAt: timestamp,
       };

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import axios from "axios";
@@ -10,7 +10,58 @@ import type { Message } from "ai/react";
 import type { AgentListing } from "@/lib/agentListings";
 import type { ScheduledTour } from "@/app/api/schedule-tours/route";
 
+const NOSTOS_AGENT_ID = "nostos-agent";
+const NOSTOS_WORKFLOW_ID = "rental_application";
+
 type Phase = "chat" | "submitted" | "error";
+
+type VaultGateStatus =
+  | "idle"
+  | "starting"
+  | "waiting_vault"
+  | "approved"
+  | "denied"
+  | "error_start";
+
+function toolPayloadFromInvocation(inv: unknown): Record<string, unknown> | null {
+  if (!inv || typeof inv !== "object") return null;
+  const o = inv as Record<string, unknown>;
+  if (o.result && typeof o.result === "object") return o.result as Record<string, unknown>;
+  if (o.output && typeof o.output === "object") return o.output as Record<string, unknown>;
+  return null;
+}
+
+/** Reads scheduleTours results whether the SDK exposes legacy toolInvocations or message.parts. */
+function extractScheduledToursFromMessage(msg: Message): ScheduledTour[] {
+  const legacy = (msg as { toolInvocations?: unknown[] }).toolInvocations ?? [];
+  for (const inv of legacy) {
+    const rec = inv as Record<string, unknown>;
+    if (rec.toolName !== "scheduleTours" || rec.state !== "result") continue;
+    const payload = toolPayloadFromInvocation(inv);
+    const tours = payload?.scheduledTours;
+    if (Array.isArray(tours)) return tours as ScheduledTour[];
+  }
+
+  const parts = (msg as { parts?: unknown[] }).parts;
+  if (Array.isArray(parts)) {
+    for (const part of parts) {
+      if (!part || typeof part !== "object") continue;
+      const p = part as Record<string, unknown>;
+      if (p.type !== "tool-invocation") continue;
+      const ti = p.toolInvocation as Record<string, unknown> | undefined;
+      if (!ti || ti.toolName !== "scheduleTours" || ti.state !== "result") continue;
+      const nested =
+        ti.result && typeof ti.result === "object"
+          ? (ti.result as Record<string, unknown>)
+          : ti.output && typeof ti.output === "object"
+            ? (ti.output as Record<string, unknown>)
+            : null;
+      const tours = nested?.scheduledTours;
+      if (Array.isArray(tours)) return tours as ScheduledTour[];
+    }
+  }
+  return [];
+}
 
 /** Converts **bold** tokens, bullet lines, and newlines to JSX. */
 function renderMarkdown(text: string) {
@@ -124,12 +175,16 @@ function ApprovalSheet({
   onApprove,
   onCancel,
   loading,
+  vaultGateStatus,
 }: {
   tours: ScheduledTour[];
   onApprove: () => void;
   onCancel: () => void;
   loading: boolean;
+  vaultGateStatus: VaultGateStatus;
 }) {
+  const approveEnabled = vaultGateStatus === "approved" && !loading;
+
   return (
     <>
       <div
@@ -176,29 +231,87 @@ function ApprovalSheet({
           , share your verified identity with the landlord.
         </p>
 
-        <div
-          className="my-5 rounded-xl p-4"
-          style={{ background: "var(--nostos-canvas)", border: "1px solid var(--nostos-border)" }}
-        >
-          <p
-            className="mb-2 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: "var(--nostos-ink-secondary)" }}
+        {(vaultGateStatus === "idle" || vaultGateStatus === "starting") && (
+          <div
+            className="my-5 flex items-center gap-3 rounded-xl border px-4 py-4"
+            style={{
+              background: "var(--nostos-canvas)",
+              borderColor: "var(--nostos-border)",
+            }}
           >
-            They will receive
-          </p>
-          {["Your full name", "That you are over 18", "Your current address"].map((item) => (
-            <div key={item} className="flex items-center gap-2 py-1">
-              <div
-                className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                style={{ background: "var(--nostos-accent)" }}
-              />
-              <p className="text-sm" style={{ color: "var(--nostos-ink)" }}>{item}</p>
+            <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin" style={{ color: "var(--nostos-accent)" }} aria-hidden />
+            <p className="text-sm font-medium" style={{ color: "var(--nostos-ink)" }}>
+              Starting verification…
+            </p>
+          </div>
+        )}
+
+        {vaultGateStatus === "waiting_vault" && (
+          <div
+            className="my-5 rounded-xl border px-4 py-4"
+            style={{
+              background: "var(--nostos-canvas)",
+              borderColor: "var(--nostos-border)",
+            }}
+          >
+            <div className="flex gap-3">
+              <Loader2 className="mt-0.5 h-5 w-5 flex-shrink-0 animate-spin" style={{ color: "var(--nostos-accent)" }} aria-hidden />
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--nostos-ink)" }}>
+                  Waiting for vault approval
+                </p>
+                <p className="mt-1 text-sm leading-snug" style={{ color: "var(--nostos-ink-secondary)" }}>
+                  Open your Dokimos vault and approve the verification request from Brooklyn Properties LLC. This page updates automatically.
+                </p>
+                <Link
+                  href="/app/vault"
+                  className="mt-3 inline-block text-sm font-semibold underline"
+                  style={{ color: "var(--nostos-accent)" }}
+                >
+                  Open vault
+                </Link>
+              </div>
             </div>
-          ))}
-          <p className="mt-3 text-xs" style={{ color: "var(--nostos-muted)" }}>
-            They will not receive your ID photo or any other documents.
+          </div>
+        )}
+
+        {vaultGateStatus === "error_start" && (
+          <p className="my-5 text-sm leading-snug text-red-600">
+            Could not start verification. Try closing this sheet and continuing the chat.
           </p>
-        </div>
+        )}
+
+        {vaultGateStatus === "denied" && (
+          <p className="my-5 text-sm leading-snug text-red-600">
+            This verification request was not approved. You can cancel and try again later.
+          </p>
+        )}
+
+        {vaultGateStatus === "approved" && (
+          <div
+            className="my-5 rounded-xl p-4"
+            style={{ background: "var(--nostos-canvas)", border: "1px solid var(--nostos-border)" }}
+          >
+            <p
+              className="mb-2 text-xs font-semibold uppercase tracking-wide"
+              style={{ color: "var(--nostos-ink-secondary)" }}
+            >
+              They will receive
+            </p>
+            {["Your full name", "That you are over 18", "Your current address"].map((item) => (
+              <div key={item} className="flex items-center gap-2 py-1">
+                <div
+                  className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                  style={{ background: "var(--nostos-accent)" }}
+                />
+                <p className="text-sm" style={{ color: "var(--nostos-ink)" }}>{item}</p>
+              </div>
+            ))}
+            <p className="mt-3 text-xs" style={{ color: "var(--nostos-muted)" }}>
+              They will not receive your ID photo or any other documents.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
@@ -216,9 +329,10 @@ function ApprovalSheet({
           <button
             type="button"
             onClick={onApprove}
-            disabled={loading}
+            disabled={!approveEnabled}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-colors disabled:opacity-60"
             style={{ background: "var(--nostos-accent)" }}
+            aria-busy={loading}
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
             Approve &amp; Apply
@@ -298,6 +412,8 @@ export default function NostosFind() {
   const [pendingVerifyTours, setPendingVerifyTours] = useState<ScheduledTour[] | null>(null);
   const [applicationIds, setApplicationIds] = useState<string[]>([]);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [vaultGateStatus, setVaultGateStatus] = useState<VaultGateStatus>("idle");
+  const [nostosAttestationRequestId, setNostosAttestationRequestId] = useState<string | null>(null);
   const toursSeenRef = useRef(false);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
@@ -319,35 +435,108 @@ export default function NostosFind() {
     for (const m of messages) {
       const msg = m as Message;
       if (msg.role !== "assistant") continue;
-      const toursResult = (msg.toolInvocations ?? []).find(
-        (inv) => inv.toolName === "scheduleTours" && inv.state === "result"
-      );
-      if (toursResult) {
-        const tours: ScheduledTour[] =
-          (toursResult as { result?: { scheduledTours?: ScheduledTour[] } }).result?.scheduledTours ?? [];
-        if (tours.length > 0) {
-          toursSeenRef.current = true;
-          setPendingVerifyTours(tours);
-        }
+      const tours = extractScheduledToursFromMessage(msg);
+      if (tours.length > 0) {
+        toursSeenRef.current = true;
+        setPendingVerifyTours(tours);
         break;
       }
     }
   }, [messages, phase]);
 
-  // "Approve & Apply" — the button click IS the consent.
-  // Directly registers pre-approved applications in the TEE; no vault round-trip needed.
+  /** Agent-verify + poll until vault approval — same trust pattern as AgentChat. */
+  useEffect(() => {
+    if (!pendingVerifyTours || !userEmail) return;
+
+    setVaultGateStatus("starting");
+    setNostosAttestationRequestId(null);
+
+    let cancelled = false;
+    let pollId: ReturnType<typeof setInterval> | null = null;
+
+    const stopPoll = () => {
+      if (pollId !== null) {
+        clearInterval(pollId);
+        pollId = null;
+      }
+    };
+
+    (async () => {
+      try {
+        const { data } = await axios.post<{ requestId: string }>("/api/agent-verify", {
+          userId: userEmail,
+          workflowId: NOSTOS_WORKFLOW_ID,
+          agentId: NOSTOS_AGENT_ID,
+        });
+        if (cancelled) return;
+        const rid = data.requestId;
+        setNostosAttestationRequestId(rid);
+        setVaultGateStatus("waiting_vault");
+
+        const tick = async () => {
+          try {
+            const { data: d } = await axios.get<{
+              status: string;
+              attestation: unknown | null;
+            }>(`/api/agent-verify/${encodeURIComponent(rid)}`);
+            if (cancelled) return;
+            if (d.status === "approved" && d.attestation) {
+              stopPoll();
+              setVaultGateStatus("approved");
+            } else if (d.status === "denied") {
+              stopPoll();
+              setVaultGateStatus("denied");
+            }
+          } catch {
+            /* keep polling */
+          }
+        };
+
+        await tick();
+        pollId = setInterval(() => void tick(), 2500);
+      } catch {
+        if (!cancelled) setVaultGateStatus("error_start");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      stopPoll();
+    };
+  }, [pendingVerifyTours, userEmail]);
+
+  const handleApprovalSheetCancel = useCallback(() => {
+    setPendingVerifyTours(null);
+    setVaultGateStatus("idle");
+    setNostosAttestationRequestId(null);
+    toursSeenRef.current = false;
+  }, []);
+
+  // Approve & Apply — submits listings using the vault-approved attestation only.
   const handleApprove = async () => {
-    if (!userEmail || !pendingVerifyTours) return;
+    if (
+      !userEmail ||
+      !pendingVerifyTours ||
+      vaultGateStatus !== "approved" ||
+      !nostosAttestationRequestId
+    )
+      return;
     setApprovalLoading(true);
     try {
+      const bookedAt = Date.now();
       const listings = pendingVerifyTours.map((t, i) => ({
-        listingId: `nostos_${Date.now()}_${i}`,
+        listingId: t.listingId ?? `nostos_${bookedAt}_${i}`,
         listingAddress: t.address,
-        tourDate: t.viewingDate,
+        tourDate: t.viewingDate?.trim() || undefined,
       }));
       const { data } = await axios.post<{ applications: Array<{ applicationId: string }> }>(
         "/api/nostos/book",
-        { tenantEmail: userEmail, tenantName: userName ?? undefined, listings }
+        {
+          tenantEmail: userEmail,
+          tenantName: userName ?? undefined,
+          attestationRequestId: nostosAttestationRequestId,
+          listings,
+        }
       );
       setApplicationIds((data.applications ?? []).map((a) => a.applicationId));
       setPendingVerifyTours(null);
@@ -478,12 +667,7 @@ export default function NostosFind() {
               ? ((searchResult as { result?: { listings?: AgentListing[] } }).result?.listings ?? [])
               : [];
 
-            const toursResult = invocations.find(
-              (inv) => inv.toolName === "scheduleTours" && inv.state === "result"
-            );
-            const scheduledTours: ScheduledTour[] = toursResult
-              ? ((toursResult as { result?: { scheduledTours?: ScheduledTour[] } }).result?.scheduledTours ?? [])
-              : [];
+            const scheduledTours = extractScheduledToursFromMessage(msg);
 
             return (
               <div key={msg.id} className="space-y-3">
@@ -606,8 +790,9 @@ export default function NostosFind() {
         <ApprovalSheet
           tours={pendingVerifyTours}
           onApprove={handleApprove}
-          onCancel={() => { setPendingVerifyTours(null); toursSeenRef.current = false; }}
+          onCancel={handleApprovalSheetCancel}
           loading={approvalLoading}
+          vaultGateStatus={vaultGateStatus}
         />
       )}
     </div>

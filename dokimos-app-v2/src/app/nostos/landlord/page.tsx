@@ -8,6 +8,7 @@ import type { RentalApplicationRecord, VerificationRequest } from "@/types/dokim
 import VerificationWizard from "@/components/verifier/VerificationWizard";
 import { MOCK_RENTAL_LISTINGS } from "@/lib/agentListings";
 import { DEMO_CONSUMER_ACCOUNTS } from "@/lib/demoConsumerAccounts";
+import { normalizeListingAddress } from "@/lib/listingAddressNormalize";
 
 type EnrichedApp = RentalApplicationRecord & { tourDate?: string };
 
@@ -131,10 +132,6 @@ const SHOWCASE_EXTRA_DEMOS: EnrichedApp[] = [
     tourDate: new Date("2026-05-26T13:30:00Z").toISOString(), // 9:30 AM ET
   },
 ];
-
-function normalizeListingAddress(addr: string): string {
-  return addr.trim().toLowerCase().replace(/\s+/g, " ");
-}
 
 /** Stable grid order: three primary listings, then Marcy / Gates / Prospect. */
 const SHOWCASE_GRID_ORDER_KEYS: string[] = [

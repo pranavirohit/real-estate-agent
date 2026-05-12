@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeeEndpoint } from "@/lib/teeEndpoint";
 import { saveTourDate } from "@/lib/tourDateStore";
+import { normalizeListingAddress } from "@/lib/listingAddressNormalize";
 
 interface BookListing {
   listingId: string;
@@ -11,6 +12,7 @@ interface BookListing {
 interface BookBody {
   tenantEmail?: string;
   tenantName?: string;
+  attestationRequestId?: string;
   listings?: BookListing[];
 }
 
@@ -34,7 +36,9 @@ export async function POST(req: NextRequest) {
   if (Array.isArray(data.applications) && Array.isArray(body.listings)) {
     for (const app of data.applications) {
       const listing = body.listings.find(
-        (l) => l.listingAddress === app.listingAddress
+        (l) =>
+          l.listingAddress === app.listingAddress ||
+          normalizeListingAddress(l.listingAddress) === normalizeListingAddress(app.listingAddress)
       );
       if (listing?.tourDate) {
         saveTourDate(app.applicationId, listing.tourDate);
