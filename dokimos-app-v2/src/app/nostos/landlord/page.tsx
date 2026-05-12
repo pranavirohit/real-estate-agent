@@ -7,6 +7,7 @@ import { ArrowLeft, ShieldCheck } from "lucide-react";
 import type { RentalApplicationRecord, VerificationRequest } from "@/types/dokimos";
 import VerificationWizard from "@/components/verifier/VerificationWizard";
 import { MOCK_RENTAL_LISTINGS } from "@/lib/agentListings";
+import { DEMO_CONSUMER_ACCOUNTS } from "@/lib/demoConsumerAccounts";
 
 type EnrichedApp = RentalApplicationRecord & { tourDate?: string };
 
@@ -42,31 +43,56 @@ function propertyMeta(address: string): { price: string; beds: string } | null {
   return PROPERTY_META.find((m) => m.keywords.some((k) => lower.includes(k))) ?? null;
 }
 
-/** Wythe / Nostrand / Flatbush — filled when the TEE has no row for that listing yet. */
-const SHOWCASE_CORE_DEMOS: EnrichedApp[] = MOCK_RENTAL_LISTINGS.map((l, i) => {
-  const applicants = [
-    { name: "Janice Sample", email: "janice.sample802@gmail.com" },
-    { name: "Sara Kim", email: "sara.kim@example.com" },
-    { name: "Marcus Chen", email: "marcus.chen@example.com" },
-  ] as const;
-  const a = applicants[i] ?? applicants[0];
-  const baseDay = 14 + i;
-  return {
-    applicationId: `showcase-core-${l.id}`,
-    listingId: `showcase-${l.id}`,
-    listingAddress: `${l.title}, ${l.neighborhood}`,
-    userId: a.email,
-    applicantName: a.name,
-    attestationRequestId: `showcase-core-${l.id}`,
-    attestation: null,
-    status: "submitted" as const,
-    submittedAt: new Date(`2026-05-${String(baseDay).padStart(2, "0")}T16:00:00Z`).toISOString(),
-    tourDate: new Date(`2026-05-${String(21 + i).padStart(2, "0")}T${14 + i}:00:00Z`).toISOString(),
-  };
-});
+const JANICE_EMAIL =
+  DEMO_CONSUMER_ACCOUNTS.find((a) => a.name === "Janice Sample")?.email.toLowerCase().trim() ??
+  "janice.sample802@gmail.com";
 
-/** Three extra Brooklyn listings — always shown unless a live application exists for the same address. */
-const SHOWCASE_EXTRA_DEMOS: EnrichedApp[] = [
+/** Wythe / Nostrand / Flatbush — Janice-only slots; extras stay full demos (below). */
+function coreListingAddress(l: (typeof MOCK_RENTAL_LISTINGS)[number]): string {
+  return `${l.title}, ${l.neighborhood}`;
+}
+
+function isJaniceRentalApp(app: EnrichedApp): boolean {
+  const email = String(app.userId).trim().toLowerCase();
+  if (email === JANICE_EMAIL) return true;
+  const n = (app.applicantName ?? "").trim().toLowerCase();
+  return n === "janice sample" || (n.includes("janice") && n.includes("sample"));
+}
+
+/** Pre-renter-flow: property card exists but no Janice row yet. */
+function corePendingPlaceholder(listingId: string, listingAddress: string): EnrichedApp {
+  return {
+    applicationId: `showcase-pending-${listingId}`,
+    listingId,
+    listingAddress,
+    userId: "",
+    applicantName: undefined,
+    attestationRequestId: `showcase-pending-${listingId}`,
+    attestation: null,
+    status: "submitted",
+    submittedAt: new Date(0).toISOString(),
+    tourDate: undefined,
+  };
+}
+
+function isPendingApplicantSlot(app: EnrichedApp): boolean {
+  return app.applicationId.startsWith("showcase-pending-");
+}
+
+function newestJaniceAppForListingKey(
+  dedupedLive: EnrichedApp[],
+  listingKey: string
+): EnrichedApp | undefined {
+  const matches = dedupedLive.filter(
+    (r) => normalizeListingAddress(r.listingAddress) === listingKey && isJaniceRentalApp(r)
+  );
+  matches.sort(
+    (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+  );
+  return matches[0];
+}
+
+/** Three extra Brooklyn listings — full demo applicants (always). */
   {
     applicationId: "showcase-extra-marcy",
     listingId: "showcase-marcy",
@@ -111,7 +137,9 @@ function normalizeListingAddress(addr: string): string {
 
 /** Stable grid order: three primary listings, then Marcy / Gates / Prospect. */
 const SHOWCASE_GRID_ORDER_KEYS: string[] = [
-  ...SHOWCASE_CORE_DEMOS.map((r) => normalizeListingAddress(r.listingAddress)),
+  ...MOCK_RENTAL_LISTINGS.map((l) =>
+    normalizeListingAddress(`${l.title}, ${l.neighborhood}`)
+  ),
   ...SHOWCASE_EXTRA_DEMOS.map((r) => normalizeListingAddress(r.listingAddress)),
 ];
 
@@ -147,48 +175,29 @@ function dedupeByListingAndTenant(apps: EnrichedApp[]): EnrichedApp[] {
   return [...m.values()];
 }
 
-/** Fixed six listings + demo personas (marketing). Order matches the grid. */
-const SHOWCASE_MARKETING_BOARD: EnrichedApp[] = [
-  ...SHOWCASE_CORE_DEMOS,
-  ...SHOWCASE_EXTRA_DEMOS,
-];
-
-function pickLiveTourDateForListing(apps: EnrichedApp[]): string | undefined {
-  const withTour = apps.filter((r) => typeof r.tourDate === "string" && r.tourDate.trim() !== "");
-  if (withTour.length === 0) return undefined;
-  withTour.sort(
-    (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-  );
-  return withTour[0].tourDate;
-}
-
 /**
- * Pure marketing board: always the six showcase applicants (names never replaced by live users).
- * Optionally overlays tour slot from live API when a rental row matches the same listing address.
+ * Six-property board: Marcy / Gates / Prospect always show demo applicants.
+ * Wythe / Nostrand / Flatbush stay empty until Janice's rental rows appear; then her card + tour from the workflow.
  */
-function marketingBoardWithLiveTourDates(liveFromApi: EnrichedApp[]): EnrichedApp[] {
+function buildLandlordMarketingApps(liveFromApi: EnrichedApp[]): EnrichedApp[] {
   const filtered = liveFromApi.filter((r) => !isSandboxListingAddress(r.listingAddress));
   const deduped = dedupeByListingAndTenant(filtered);
 
-  const byListing = new Map<string, EnrichedApp[]>();
-  for (const r of deduped) {
-    const k = normalizeListingAddress(r.listingAddress);
-    if (!byListing.has(k)) byListing.set(k, []);
-    byListing.get(k)!.push(r);
-  }
-
-  const tourByListing = new Map<string, string>();
-  for (const [k, apps] of byListing) {
-    const picked = pickLiveTourDateForListing(apps);
-    if (picked) tourByListing.set(k, picked);
-  }
-
-  return SHOWCASE_MARKETING_BOARD.map((slot) => {
-    const k = normalizeListingAddress(slot.listingAddress);
-    const liveTour = tourByListing.get(k);
-    if (!liveTour) return { ...slot };
-    return { ...slot, tourDate: liveTour };
+  const coreRows: EnrichedApp[] = MOCK_RENTAL_LISTINGS.map((l) => {
+    const address = coreListingAddress(l);
+    const listingKey = normalizeListingAddress(address);
+    const liveJanice = newestJaniceAppForListingKey(deduped, listingKey);
+    if (liveJanice) {
+      return {
+        ...liveJanice,
+        listingAddress: address,
+        applicantName: liveJanice.applicantName ?? "Janice Sample",
+      };
+    }
+    return corePendingPlaceholder(l.id, address);
   });
+
+  return [...coreRows, ...SHOWCASE_EXTRA_DEMOS];
 }
 
 function formatTourDay(iso: string): string {
@@ -439,7 +448,8 @@ export default function NostosLandlord() {
   }, [fetchApps]);
 
   // Group applications by listing address; canonical six-property grid order, then tour date tie-break.
-  const allApps = marketingBoardWithLiveTourDates(rows);
+  const allApps = buildLandlordMarketingApps(rows);
+  const applicantRows = allApps.filter((a) => !isPendingApplicantSlot(a));
   const groups = Object.entries(
     allApps.reduce<Record<string, EnrichedApp[]>>((acc, app) => {
       const key = app.listingAddress;
@@ -456,9 +466,11 @@ export default function NostosLandlord() {
     return new Date(aDate).getTime() - new Date(bDate).getTime();
   });
 
-  const totalApplicants = allApps.length;
-  const propertyCount = groups.length;
-  const allVerified = allApps.every((r) => r.status === "submitted");
+  const totalApplicants = applicantRows.length;
+  const propertyCount = allApps.length;
+  const allVerified =
+    applicantRows.length > 0 &&
+    applicantRows.every((r) => r.status === "submitted");
 
   return (
     <>
@@ -642,10 +654,42 @@ export default function NostosLandlord() {
                           className="text-xs font-semibold uppercase"
                           style={{ color: "var(--nostos-muted)", letterSpacing: "0.1em" }}
                         >
-                          {apps.length === 1 ? "1 Applicant" : `${apps.length} Applicants`}
+                          {apps.some((a) => isPendingApplicantSlot(a))
+                            ? "Awaiting applicant"
+                            : apps.length === 1
+                              ? "1 Applicant"
+                              : `${apps.length} Applicants`}
                         </p>
 
                         {apps.map((app) => {
+                          if (isPendingApplicantSlot(app)) {
+                            return (
+                              <div
+                                key={app.applicationId}
+                                className="rounded-xl p-3 text-left"
+                                style={{
+                                  background: "var(--nostos-canvas)",
+                                  border: "1px solid var(--nostos-border)",
+                                }}
+                              >
+                                <p className="text-sm leading-snug" style={{ color: "var(--nostos-ink-secondary)" }}>
+                                  No applicant yet. Complete the renter workflow for this listing to show Janice Sample with her tour time.
+                                </p>
+                                <div className="mt-2.5">
+                                  <p
+                                    className="mb-1 text-xs font-semibold uppercase"
+                                    style={{ color: "var(--nostos-muted)", letterSpacing: "0.08em" }}
+                                  >
+                                    Upcoming Tour
+                                  </p>
+                                  <p className="text-xs italic" style={{ color: "var(--nostos-muted)" }}>
+                                    To be scheduled
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           const name = app.applicantName ?? app.userId;
                           const initials = name.split(" ").map((p: string) => p[0]).join("").slice(0, 2).toUpperCase();
                           return (
@@ -719,7 +763,7 @@ export default function NostosLandlord() {
         </div>
       </div>
 
-      {detailApp && (
+      {detailApp && !isPendingApplicantSlot(detailApp) && (
         <DetailDrawer
           app={detailApp}
           onClose={() => setDetailApp(null)}
