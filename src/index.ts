@@ -83,7 +83,7 @@ async function verifyDokimosAttestation(
         eigenAppIdMatchesExpected: false,
         hashMismatchDetails,
         note:
-          'Mock TEE quotes in the demo are not verifiable on Eigen AVS. For production, run verification on EigenCompute and follow Eigen docs (Verify trust guarantees).',
+          'tee.quote bytes are mock. Signature and eigen.appId are real on EigenCloud TDX. Verify signer address against Derived Addresses at verify-sepolia.eigencloud.xyz/app/' + DEFAULT_EIGEN_APP_ID,
       };
     }
     const computed = computeAttributesHash(attestation.attributes);
@@ -111,7 +111,7 @@ async function verifyDokimosAttestation(
         ),
         hashMismatchDetails,
         note:
-          'Mock TEE quotes in the demo are not verifiable on Eigen AVS. For production, run verification on EigenCompute and follow Eigen docs (Verify trust guarantees).',
+          'tee.quote bytes are mock. Signature and eigen.appId are real on EigenCloud TDX. Verify signer address against Derived Addresses at verify-sepolia.eigencloud.xyz/app/' + DEFAULT_EIGEN_APP_ID,
       };
     }
     hashMatch = true;
@@ -140,7 +140,7 @@ async function verifyDokimosAttestation(
     eigenAppIdMatchesExpected,
     hashMismatchDetails,
     note:
-      'Mock TEE quotes in the demo are not verifiable on Eigen AVS. For production, run verification on EigenCompute and follow Eigen docs (Verify trust guarantees).',
+      'tee.quote bytes are mock. Signature and eigen.appId are real on EigenCloud TDX. Verify signer address against Derived Addresses at verify-sepolia.eigencloud.xyz/app/' + DEFAULT_EIGEN_APP_ID,
   };
 }
 
@@ -1097,24 +1097,42 @@ async function main() {
 
   await seedDemoAccounts(account);
 
-  // Helper functions for generating realistic TEE attestation data
+  // ── TEE quote helpers ────────────────────────────────────────────────────────
+  //
+  // The PRIMARY trust proof on EigenCloud is the KMS-derived MNEMONIC:
+  //   • compute-source-env.sh (injected by ecloud) calls kms-client at startup,
+  //     which retrieves the mnemonic unique to this TDX enclave from EigenCloud KMS.
+  //   • Every account.signMessage() call below produces a signature from that
+  //     TEE-bound key.  Verify by: (1) check signer address against "Derived Addresses"
+  //     on https://verify-sepolia.eigencloud.xyz/app/<EIGEN_APP_ID>,
+  //     (2) verify message + signature on Etherscan.
+  //
+  // The tee.quote / tee.mrenclave fields below are MOCK bytes — they carry a
+  // correctly-formatted TDX v4 header but are not verifiable against Intel PCCS/DCAP.
+  //
+  // To generate a real Intel TDX quote from inside this container on EigenCloud:
+  //   1. Exec `ioctl(TDX_CMD_GET_QUOTE)` via /dev/tdx_guest (requires a native
+  //      Node addon or a small Rust/Go helper binary compiled into the image).
+  //   2. Pass the resulting TDREPORT / quote bytes as the tee.quote field.
+  //   3. Consumers can then verify the quote against Intel's PCCS collateral.
+  // This is an advanced step; the MNEMONIC-signature path is sufficient for
+  // EigenCloud-based verifiability and is already real when running in TDX.
+
   function generateMockQuote(): string {
-    // Generate realistic-looking Intel TDX quote (base64)
-    // TDX quote v4 header: 0x04 (version), 0x00 (attestation key type), 0x03 (TEE type = TDX)
+    // TDX quote v4 header: version=0x04, att_key_type=0x00, tee_type=0x03 (TDX)
     const header = Buffer.from([0x04, 0x00, 0x03, 0x00]);
-    const randomData = crypto.randomBytes(1020); // Total ~1024 bytes
+    const randomData = crypto.randomBytes(1020);
     return Buffer.concat([header, randomData]).toString('base64');
   }
 
   function generateMockMREnclave(): string {
-    // Generate consistent hash based on code version
-    // In real implementation, this would be the hash of the TEE code
+    // Placeholder: real MRENCLAVE would be the MRTD measurement from the TDX TD Report.
     const codeIdentifier = "dokimos-tee-v1.0.0-" + new Date().toISOString().split('T')[0];
     return '0x' + crypto.createHash('sha256').update(codeIdentifier).digest('hex');
   }
 
   function generateMockMRSigner(): string {
-    // Intel's signing key identifier (mock)
+    // Placeholder: real MRSIGNER would be the Intel signing authority key hash.
     return '0x8086000000000000000000000000000000000000000000000000000000000000';
   }
 
