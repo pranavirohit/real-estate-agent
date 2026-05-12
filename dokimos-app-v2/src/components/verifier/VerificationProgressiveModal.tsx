@@ -34,7 +34,7 @@ const DEMO_DOCKER_IMAGE =
 
 const REPO_URL =
   process.env.NEXT_PUBLIC_DOKIMOS_SOURCE_REPO_URL ??
-  "https://github.com/dokimos/dokimos-tee";
+  "https://github.com/pranavirohit/real-estate-agent";
 
 const STEP_COUNT = 5;
 
