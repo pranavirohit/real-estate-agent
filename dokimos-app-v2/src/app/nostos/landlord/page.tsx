@@ -147,19 +147,48 @@ function dedupeByListingAndTenant(apps: EnrichedApp[]): EnrichedApp[] {
   return [...m.values()];
 }
 
-function mergeWithDemoPadding(real: EnrichedApp[]): EnrichedApp[] {
-  const filtered = real.filter((r) => !isSandboxListingAddress(r.listingAddress));
+/** Fixed six listings + demo personas (marketing). Order matches the grid. */
+const SHOWCASE_MARKETING_BOARD: EnrichedApp[] = [
+  ...SHOWCASE_CORE_DEMOS,
+  ...SHOWCASE_EXTRA_DEMOS,
+];
+
+function pickLiveTourDateForListing(apps: EnrichedApp[]): string | undefined {
+  const withTour = apps.filter((r) => typeof r.tourDate === "string" && r.tourDate.trim() !== "");
+  if (withTour.length === 0) return undefined;
+  withTour.sort(
+    (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+  );
+  return withTour[0].tourDate;
+}
+
+/**
+ * Pure marketing board: always the six showcase applicants (names never replaced by live users).
+ * Optionally overlays tour slot from live API when a rental row matches the same listing address.
+ */
+function marketingBoardWithLiveTourDates(liveFromApi: EnrichedApp[]): EnrichedApp[] {
+  const filtered = liveFromApi.filter((r) => !isSandboxListingAddress(r.listingAddress));
   const deduped = dedupeByListingAndTenant(filtered);
-  const covered = new Set(deduped.map((r) => normalizeListingAddress(r.listingAddress)));
 
-  const coreFillers = SHOWCASE_CORE_DEMOS.filter(
-    (d) => !covered.has(normalizeListingAddress(d.listingAddress))
-  );
-  const extraFillers = SHOWCASE_EXTRA_DEMOS.filter(
-    (d) => !covered.has(normalizeListingAddress(d.listingAddress))
-  );
+  const byListing = new Map<string, EnrichedApp[]>();
+  for (const r of deduped) {
+    const k = normalizeListingAddress(r.listingAddress);
+    if (!byListing.has(k)) byListing.set(k, []);
+    byListing.get(k)!.push(r);
+  }
 
-  return [...deduped, ...coreFillers, ...extraFillers];
+  const tourByListing = new Map<string, string>();
+  for (const [k, apps] of byListing) {
+    const picked = pickLiveTourDateForListing(apps);
+    if (picked) tourByListing.set(k, picked);
+  }
+
+  return SHOWCASE_MARKETING_BOARD.map((slot) => {
+    const k = normalizeListingAddress(slot.listingAddress);
+    const liveTour = tourByListing.get(k);
+    if (!liveTour) return { ...slot };
+    return { ...slot, tourDate: liveTour };
+  });
 }
 
 function formatTourDay(iso: string): string {
@@ -410,7 +439,7 @@ export default function NostosLandlord() {
   }, [fetchApps]);
 
   // Group applications by listing address; canonical six-property grid order, then tour date tie-break.
-  const allApps = mergeWithDemoPadding(rows);
+  const allApps = marketingBoardWithLiveTourDates(rows);
   const groups = Object.entries(
     allApps.reduce<Record<string, EnrichedApp[]>>((acc, app) => {
       const key = app.listingAddress;
