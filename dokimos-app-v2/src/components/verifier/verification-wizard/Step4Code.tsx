@@ -19,7 +19,7 @@ interface Step4CodeProps {
 
 const GITHUB_URL =
   process.env.NEXT_PUBLIC_DOKIMOS_SOURCE_REPO_URL ??
-  "https://github.com/dokimos/dokimos-tee";
+  "https://github.com/pranavirohit/real-estate-agent";
 
 export default function Step4Code({ attestation, onNext }: Step4CodeProps) {
   const [showProof, setShowProof] = useState(true);
