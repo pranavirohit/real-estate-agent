@@ -8,6 +8,7 @@ export type AgentListing = {
   sqft: number;
   imageUrl: string;
   url: string;
+  landlordEmail?: string;
 };
 
 /** Exact copy from CURSOR_CONTEXT — mock NYC listings when API fails or returns empty. */
@@ -35,6 +36,25 @@ export const MOCK_RENTAL_LISTINGS = [
   },
 ] as const;
 
+const MOCK_LANDLORD_EMAILS: Record<string, string> = {
+  "wythe-3b": "landlord.wythe@nostos-demo.com",
+  "nostrand-2f": "landlord.nostrand@nostos-demo.com",
+  "flatbush-4a": "landlord.flatbush@nostos-demo.com",
+};
+
+// Curated Unsplash photos — each matches the neighborhood vibe
+const MOCK_IMAGE_URLS: Record<string, string> = {
+  // Williamsburg: bright, modern loft interior
+  "wythe-3b":
+    "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80&fit=crop",
+  // Bed-Stuy: warm pre-war living room with exposed brick
+  "nostrand-2f":
+    "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80&fit=crop",
+  // Park Slope: classic Brooklyn brownstone interior
+  "flatbush-4a":
+    "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80&fit=crop",
+};
+
 /** Map hardcoded demo rows to AgentListing for API fallback. */
 export function fallbackMockListings(): AgentListing[] {
   return MOCK_RENTAL_LISTINGS.map((l, i) => ({
@@ -44,8 +64,9 @@ export function fallbackMockListings(): AgentListing[] {
     beds: 2,
     baths: i === 2 ? 2 : 1,
     sqft: 0,
-    imageUrl: "",
+    imageUrl: MOCK_IMAGE_URLS[l.id] ?? "",
     url: "",
+    landlordEmail: MOCK_LANDLORD_EMAILS[l.id],
   }));
 }
 

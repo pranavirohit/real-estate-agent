@@ -98,7 +98,7 @@
 | F1 | Embedded Widget tab | Header, mock **Uber driver**, CTA/disabled continue per spec | [ ] | |
 | F2 | REST API tab | Test API, **Test API Call**, success prefix **✅ Workflow verification triggered!**, error **❌ Error:** | [ ] | |
 | F3 | Why TEEs Matter | Columns, **How It Works** diagram, **Key Insight** | [ ] | |
-| F4 | Test call payload | Includes `verifierId: 'airbnb_prod'`, `userEmail: 'janice.sample@example.com'`, `requestedAttributes`, `workflow` (e.g. `host_verification`) | [ ] | |
+| F4 | Test call payload | Includes `verifierId: 'airbnb_prod'`, `userEmail: 'janice.sample802@gmail.com'`, `requestedAttributes`, `workflow` (e.g. `host_verification`) | [ ] | |
 
 ---
 
@@ -106,7 +106,7 @@
 
 | # | Check | Pass if | Done | Evidence |
 |---|--------|---------|------|----------|
-| G1 | Fastify seeds | Demo verifiers include **verify@airbnb.com** / **airbnb_prod** / **Airbnb**; shared **`demo1234`**; users include **janice.sample@example.com** (and other demo emails) | [ ] | |
+| G1 | Fastify seeds | Demo verifiers include **verify@airbnb.com** / **airbnb_prod** / **Airbnb**; shared **`demo1234`**; users include **janice.sample802@gmail.com** (and other demo emails) | [ ] | |
 | G2 | `POST /api/request-verification` | Zod body: `verifierId`, `userEmail`, `requestedAttributes`, optional `workflow`; 404 if missing; creates `req_*` pending | [ ] | |
 | G3 | Next BFF | `dokimos-app-v2/src/app/api/request-verification/route.ts` forwards to `${TEE_ENDPOINT}/api/request-verification` | [ ] | |
 | G4 | `GET /api/requests/verifier/:verifierId` | Implemented and matches how you’d build a live dashboard | [ ] | |
@@ -130,7 +130,7 @@
 | # | Check | Pass if | Done | Evidence |
 |---|--------|---------|------|----------|
 | I1 | Create request | Integration test (or curl) creates pending request in Fastify store | [ ] | |
-| I2 | User-side | `GET /api/requests/user/janice.sample@example.com` (or equivalent) lists request | [ ] | |
+| I2 | User-side | `GET /api/requests/user/janice.sample802@gmail.com` (or equivalent) lists request | [ ] | |
 | I3 | Approve | Consumer flow **`POST /api/approve-request`** still matches demo story | [ ] | |
 | I4 | Verifier refresh | You can explain gap: **dashboard does not poll** live API today | [ ] | |
 

@@ -190,30 +190,34 @@ function buildTourEmail(params: {
   listingUrl?: string;
   landlordEmail?: string;
 }): string {
-  const { tenantName, address, dateLabel, timeLabel, tourNumber, totalTours, listingUrl, landlordEmail } = params;
+  const { tenantName, address, dateLabel, timeLabel, tourNumber, totalTours } = params;
 
-  const viewListingBtn = listingUrl
-    ? `<a href="${listingUrl}" style="display:inline-block;margin-top:20px;padding:11px 22px;background:#fff;color:#C2410C;font-size:13px;font-weight:600;text-decoration:none;border-radius:8px;border:1.5px solid rgba(194,65,12,0.35);">View listing &rarr;</a>`
-    : "";
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 
-  const contactValue = landlordEmail
-    ? `<a href="mailto:${landlordEmail}" style="color:#C2410C;text-decoration:none;font-weight:600;font-size:14px;">${landlordEmail}</a>`
-    : `<span style="color:#44403c;font-size:14px;">Reply to this email to reschedule.</span>`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Hedvig+Letters+Serif:opsz@12..24&display=swap');
+</style>
+</head>
+<body style="margin:0;padding:0;background:#F7F5F2;">
 
-  return `
-<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;max-width:580px;margin:0 auto;color:#1c1917;background:#f5f5f4;padding:28px 0">
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;max-width:580px;margin:0 auto;color:#1c1917;background:#F7F5F2;padding:28px 0">
 
   <!-- Header -->
   <div style="background:linear-gradient(140deg,#b83b0a 0%,#ea580c 60%,#f97316 100%);padding:36px 36px 32px;border-radius:16px 16px 0 0">
-    <p style="margin:0 0 16px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.6)">Nostos</p>
+    <p style="margin:0 0 18px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.6)">Nostos</p>
     <table style="border-collapse:collapse;width:100%"><tr>
       <td style="vertical-align:middle;width:52px">
         <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.18);text-align:center;line-height:44px">
           <span style="color:#fff;font-size:22px;font-weight:700;">&#10003;</span>
         </div>
       </td>
-      <td style="vertical-align:middle;padding-left:4px">
-        <p style="margin:0;font-size:26px;font-weight:700;color:#fff;letter-spacing:-0.5px;line-height:1.15">Tour ${tourNumber} of ${totalTours} confirmed</p>
+      <td style="vertical-align:middle;padding-left:8px">
+        <p style="margin:0;font-size:28px;font-weight:400;color:#fff;line-height:1.15;font-family:'Hedvig Letters Serif',Georgia,serif;">Tour ${tourNumber} of ${totalTours} confirmed</p>
       </td>
     </tr></table>
   </div>
@@ -247,10 +251,10 @@ function buildTourEmail(params: {
       </tr>
     </table>
 
-    <!-- Tour card with left accent -->
-    <div style="border-left:4px solid #ea580c;background:#fff7ed;border-radius:0 12px 12px 0;padding:22px 24px;margin:0 0 16px">
-      <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#92400e">Tour details</p>
-      <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#1c1917;line-height:1.35">${address}</p>
+    <!-- Tour details card -->
+    <div style="border-left:4px solid #ea580c;background:#fff7ed;border-radius:0 12px 12px 0;padding:22px 24px;margin:0 0 20px">
+      <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#92400e">Tour details</p>
+      <p style="margin:0 0 20px;font-size:20px;font-weight:400;color:#1c1917;line-height:1.3;font-family:'Hedvig Letters Serif',Georgia,serif;">${address}</p>
       <table style="border-collapse:collapse">
         <tr>
           <td style="padding-right:28px;padding-bottom:14px;vertical-align:top">
@@ -267,13 +271,22 @@ function buildTourEmail(params: {
           </td>
         </tr>
       </table>
-      ${viewListingBtn}
+      <!-- Get directions -->
+      <a href="${mapsUrl}" style="display:inline-block;margin-top:6px;padding:10px 20px;background:#C2410C;color:#fff;font-size:13px;font-weight:600;text-decoration:none;border-radius:8px;">Get directions &rarr;</a>
     </div>
 
-    <!-- Contact -->
-    <div style="border:1px solid #e7e5e4;border-radius:12px;padding:18px 20px;margin:0 0 28px">
-      <p style="margin:0 0 5px;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#a8a29e">Your point of contact</p>
-      ${contactValue}
+    <!-- What to expect -->
+    <div style="border:1px solid #e7e5e4;border-radius:12px;padding:20px 24px;margin:0 0 28px">
+      <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#a8a29e">What to expect</p>
+      <p style="margin:0 0 8px;font-size:14px;color:#1c1917;line-height:1.6">
+        <span style="color:#C2410C;font-weight:700;margin-right:8px">&#10003;</span>Your identity has already been shared with the landlord — no documents needed at the door.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:#1c1917;line-height:1.6">
+        <span style="color:#C2410C;font-weight:700;margin-right:8px">&#10003;</span>Plan for about 30 minutes.
+      </p>
+      <p style="margin:0;font-size:14px;color:#1c1917;line-height:1.6">
+        <span style="color:#C2410C;font-weight:700;margin-right:8px">&#10003;</span>Need to reschedule? Reply to this email and we'll sort it out.
+      </p>
     </div>
 
     <p style="margin:0;font-size:13px;color:#a8a29e;line-height:1.7;border-top:1px solid #f5f5f4;padding-top:20px">
@@ -287,7 +300,9 @@ function buildTourEmail(params: {
     <p style="margin:5px 0 0;font-size:11px;color:#d6d3d1;letter-spacing:0.05em">nostos.app</p>
   </div>
 
-</div>`.trim();
+</div>
+</body>
+</html>`.trim();
 }
 
 function buildLandlordTourEmail(params: {
@@ -501,6 +516,7 @@ export async function POST(req: NextRequest) {
     const listings = tours.map((t, i) => ({
       listingId: `nostos_${Date.now()}_${i}`,
       listingAddress: t.listingAddress,
+      tourDate: scheduledTours[i]?.viewingDate,
     }));
     await fetch(`${TEE_ENDPOINT}/api/nostos/book`, {
       method: "POST",

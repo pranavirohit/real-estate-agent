@@ -13,7 +13,7 @@ Companion to **`demo-script-source-kit.md`** (consumer journey). This document c
 |-------|------------|
 | **`/business`** (`VerifierDashboard`) | **Hybrid:** fixed session **`AIRBNB_DEMO_SESSION`** (`verifierId: airbnb_prod`, `verify@airbnb.com`, **Airbnb**). Table/overview use seeded **`BUSINESS_DEMO_REQUESTS`**; **Send verification request (live API)** calls **`POST /api/request-verification`** and prepends the returned row when Fastify is up. |
 | **Fastify** (`src/index.ts`, repo root) | **In-memory** `users`, `verifiers`, `requests`. **Seeded** demo users/verifiers, **`seedVerifierDashboardDemos()`** (hundreds of synthetic rows), **`seedDemoVerificationRequests()`** (Janice’s consumer demos). Shared password for demo accounts: **`demo1234`**. |
-| **`/integration`** | **Live** “Test API Call” button → **`POST /api/request-verification`** → Fastify **`POST /api/request-verification`** (requires a seeded user such as **`janice.sample@example.com`** + valid **`verifierId`** e.g. **`airbnb_prod`**). Other code blocks are **illustrative** (e.g. `https://api.dokimos.com/verify` is not the same as this repo’s `POST /verify` on Fastify). |
+| **`/integration`** | **Live** “Test API Call” button → **`POST /api/request-verification`** → Fastify **`POST /api/request-verification`** (requires a seeded user such as **`janice.sample802@gmail.com`** + valid **`verifierId`** e.g. **`airbnb_prod`**). Other code blocks are **illustrative** (e.g. `https://api.dokimos.com/verify` is not the same as this repo’s `POST /verify` on Fastify). |
 | **Verifier auth API routes** (`dokimos-app-v2/src/app/api/auth/verifier/*`) | **Real BFF proxies** to Fastify **`/api/auth/verifier/*`**. The **`/business`** page does **not** wire login UI to these routes today. |
 
 ---
@@ -126,8 +126,8 @@ If used elsewhere, three layers:
 ### `/integration` flows
 
 - **Tab switch** — no URL query; stateful.
-- **REST API → Test API Call:** `axios.post('/api/request-verification', { verifierId: 'airbnb_prod', userEmail: 'janice.sample@example.com', requestedAttributes: [...], workflow: 'host_verification' })`
-  - **Success** sets multiline result string beginning with **✅ Workflow verification triggered!** (includes **Request ID**, **User: janice.sample@example.com**, instructions to check Verifier Dashboard).
+- **REST API → Test API Call:** `axios.post('/api/request-verification', { verifierId: 'airbnb_prod', userEmail: 'janice.sample802@gmail.com', requestedAttributes: [...], workflow: 'host_verification' })`
+  - **Success** sets multiline result string beginning with **✅ Workflow verification triggered!** (includes **Request ID**, **User: janice.sample802@gmail.com**, instructions to check Verifier Dashboard).
   - **Error** prefix **❌ Error:** with server message.
 
 ---
@@ -175,7 +175,7 @@ Each option has **title** + **description** — keys: **name**, **dateOfBirth**,
 
 - **Server-Side API Integration** — *Trigger verifications from your backend and receive cryptographic attestations.*
 - **Test API Integration** — *Simulate an API call to create a verification request for the demo user* — button **Test API Call** / **Testing...**
-- Callout: *What this simulates:* — *POST /api/request-verification with workflow "host_verification" for janice.sample@example.com (verifier airbnb_prod)* — *In production, this API call would be triggered automatically when a user signs up in your app (e.g., Uber driver signup flow).*
+- Callout: *What this simulates:* — *POST /api/request-verification with workflow "host_verification" for janice.sample802@gmail.com (verifier airbnb_prod)* — *In production, this API call would be triggered automatically when a user signs up in your app (e.g., Uber driver signup flow).*
 - Steps **1 Request Verification**, **2 Response Structure (with Eigen Attestation)**, **3 Verify the Attestation** — callout about **`tee`** and **`eigen`** objects
 
 ### Integration — Trust tab
@@ -204,7 +204,7 @@ Each option has **title** + **description** — keys: **name**, **dateOfBirth**,
 
 All share hashed password **`demo1234`**.
 
-**Primary demo user (consumer + API tests):** **`janice.sample@example.com`**, name **Janice Sample**, **`user_janice`** (plus three other seeded demo emails; all use **`demo1234`**).
+**Primary demo user (consumer + API tests):** **`janice.sample802@gmail.com`**, name **Janice Sample**, **`user_janice`** (plus three other seeded demo emails; all use **`demo1234`**).
 
 ### `POST /api/request-verification` (Fastify)
 
@@ -263,7 +263,7 @@ Filename pattern: **`dokimos-verifications-{YYYY-MM-DD}.csv`** (ISO date slice).
 
 ## 6) End-to-end “business pipeline” story (for scripts)
 
-1. **Developer** (or **Integration** test button, or **`/business`** live panel) calls **`POST /api/request-verification`** with **`verifierId: "airbnb_prod"`**, **`userEmail: "janice.sample@example.com"`** (or another seeded demo email), **`requestedAttributes`**, **`workflow`** (e.g. **`host_verification`**).
+1. **Developer** (or **Integration** test button, or **`/business`** live panel) calls **`POST /api/request-verification`** with **`verifierId: "airbnb_prod"`**, **`userEmail: "janice.sample802@gmail.com"`** (or another seeded demo email), **`requestedAttributes`**, **`workflow`** (e.g. **`host_verification`**).
 2. **Fastify** stores a **pending** **`VerificationRequest`** keyed by **`requestId`**.
 3. **End user** (signed in as that email in the app) sees the request under **Vault / Activity** via **`GET /api/requests/user/{userEmail}`**.
 4. User **approves** in **`Screen04Share`** → **`POST /api/approve-request`** with **`imageBase64`** → backend re-OCRs, attaches **signed attestation**, marks **approved**.
@@ -278,7 +278,7 @@ Filename pattern: **`dokimos-verifications-{YYYY-MM-DD}.csv`** (ISO date slice).
 | requestId | userEmail | workflow | status |
 |-----------|-----------|----------|--------|
 | req_airbnb_001 | jordan.lee@gmail.com | host_verification | approved |
-| req_airbnb_002 | janice.sample@example.com | host_verification | pending |
+| req_airbnb_002 | janice.sample802@gmail.com | host_verification | pending |
 | req_airbnb_003 | marcus.johnson@yahoo.com | guest_verification | approved |
 | req_airbnb_004 | emily.rodriguez@gmail.com | host_verification | denied |
 | req_airbnb_005 | david.kim@hotmail.com | guest_verification | pending |

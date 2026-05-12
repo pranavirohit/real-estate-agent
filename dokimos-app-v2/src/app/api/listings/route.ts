@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AgentListing } from "@/lib/agentListings";
 
-const RAPIDAPI_HOST = "zillow-scraper-api.p.rapidapi.com";
+const RAPIDAPI_HOST = "zillow-property-data1.p.rapidapi.com";
 const UPSTREAM_BASE =
-  "https://zillow-scraper-api.p.rapidapi.com/zillow/search/listings";
+  "https://zillow-property-data1.p.rapidapi.com/v1";
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return x !== null && typeof x === "object" && !Array.isArray(x);
@@ -149,6 +149,9 @@ function normalizeOne(raw: unknown, index: number): AgentListing | null {
   let price = pickPrice(raw);
   if (!price) price = "Rent N/A";
 
+  const landlordEmail =
+    typeof raw.landlordEmail === "string" ? raw.landlordEmail : undefined;
+
   return {
     id,
     address,
@@ -158,6 +161,7 @@ function normalizeOne(raw: unknown, index: number): AgentListing | null {
     sqft,
     imageUrl: pickImage(raw),
     url: pickUrl(raw),
+    ...(landlordEmail ? { landlordEmail } : {}),
   };
 }
 
@@ -185,16 +189,13 @@ export async function GET(request: NextRequest) {
   const amenityList = amenitiesRaw ? amenitiesRaw.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean) : [];
 
   const params = new URLSearchParams({
-    // Use neighborhood as a more precise location when provided
     location: neighborhood ? `${neighborhood}, ${location}` : location,
-    status_type: "ForRent",
-    beds_min: beds,
-    price_max: maxPrice,
+    listing_status: "for_rent",
+    number_of_bedrooms: beds,
+    list_price_range: `0,${maxPrice}`,
   });
-  // Pass pet_friendly to Zillow if supported by the scraper
-  if (petFriendly) params.set("pets_allowed", "true");
-  // Pass min baths if provided
-  if (minBaths) params.set("bathrooms_min", minBaths);
+  if (minBaths) params.set("number_of_bathrooms", minBaths);
+  if (petFriendly) params.set("pets", "allows_large_dogs,allows_small_dogs,allows_cats");
 
   const url = `${UPSTREAM_BASE}?${params.toString()}`;
 

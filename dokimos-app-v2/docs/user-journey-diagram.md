@@ -91,7 +91,7 @@ sequenceDiagram
   Next->>TEE: POST /api/request-verification
   TEE-->>Dev: requestId, status pending
 
-  Note over User,TEE: User must exist (e.g. janice.sample@example.com) and complete /verify path for attestations
+  Note over User,TEE: User must exist (e.g. janice.sample802@gmail.com) and complete /verify path for attestations
 
   User->>Next: GET /api/requests/user/:email
   Next->>TEE: GET /api/requests/user/:email
@@ -114,7 +114,7 @@ sequenceDiagram
 |---------------|---------|
 | **Next BFF** | Same-origin `/api/*`; proxies to `TEE_ENDPOINT` (default `http://localhost:8080`). |
 | **`/business`** | Visual verifier dashboard; uses **offline** `BUSINESS_DEMO_REQUESTS`, not live `GET /api/requests/verifier/...`. |
-| **`/integration` Test API** | **Live** `POST /api/request-verification` against seeded `airbnb_prod` + `janice.sample@example.com`. |
+| **`/integration` Test API** | **Live** `POST /api/request-verification` against seeded `airbnb_prod` + `janice.sample802@gmail.com`. |
 
 ---
 

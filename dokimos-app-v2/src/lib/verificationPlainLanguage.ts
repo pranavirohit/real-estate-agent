@@ -38,7 +38,11 @@ export function formatNameFromUserEmail(email: string): string {
   const base = local.split("+")[0] ?? local;
   const parts = base.replace(/\./g, " ").split(/[._]/).filter(Boolean);
   if (parts.length === 0) return email;
-  return parts
+  // Strip trailing digits from each part (e.g. "sample802" → "sample") so
+  // emails like janice.sample802@gmail.com yield "Janice Sample" not "Janice Sample802".
+  const cleaned = parts.map((s) => s.replace(/\d+$/, "")).filter(Boolean);
+  const source = cleaned.length > 0 ? cleaned : parts;
+  return source
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
     .join(" ");
 }

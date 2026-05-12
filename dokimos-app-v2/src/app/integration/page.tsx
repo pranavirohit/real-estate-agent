@@ -198,12 +198,12 @@ function APITab({ copyToClipboard, copiedCode }: { copyToClipboard: (code: strin
       // Simulate a workflow-based API call (as if Uber's backend called this)
       const response = await axios.post('/api/request-verification', {
         verifierId: 'airbnb_prod',
-        userEmail: 'janice.sample@example.com',
+        userEmail: 'janice.sample802@gmail.com',
         requestedAttributes: ['ageOver21', 'name', 'notExpired', 'documentType'],
         workflow: 'host_verification'
       });
 
-      setTestResult(`✅ Workflow verification triggered!\n\nWorkflow: Host Verification\nRequest ID: ${response.data.requestId}\nUser: janice.sample@example.com\n\nThe user will see this request in their Dokimos app.\nCheck the Verifier Dashboard to monitor status.`);
+      setTestResult(`✅ Workflow verification triggered!\n\nWorkflow: Host Verification\nRequest ID: ${response.data.requestId}\nUser: janice.sample802@gmail.com\n\nThe user will see this request in their Dokimos app.\nCheck the Verifier Dashboard to monitor status.`);
     } catch (error: any) {
       setTestResult(`❌ Error: ${error.response?.data?.error || error.message}`);
     } finally {
@@ -341,7 +341,7 @@ app.post('/webhooks/dokimos', async (req, res) => {
             <strong className="text-slate-200">What this simulates:</strong>
           </p>
           <p className="text-xs text-slate-400">
-            POST /api/request-verification with workflow "host_verification" for janice.sample@example.com (verifier airbnb_prod)
+            POST /api/request-verification with workflow "host_verification" for janice.sample802@gmail.com (verifier airbnb_prod)
           </p>
           <p className="text-xs text-slate-400 mt-2">
             In production, this API call would be triggered automatically when a user signs up in your app (e.g., Uber driver signup flow).

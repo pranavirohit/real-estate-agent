@@ -33,7 +33,7 @@ export const BUSINESS_DEMO_REQUESTS: VerificationRequest[] = [
   {
     requestId: "req_airbnb_002",
     ...V,
-    userEmail: "janice.sample@example.com",
+    userEmail: "janice.sample802@gmail.com",
     requestedAttributes: ["name", "ageOver18", "address", "notExpired"],
     workflow: "host_verification",
     status: "pending",
