@@ -1,17 +1,18 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, tool, convertToCoreMessages, jsonSchema, type Message } from "ai";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { fallbackMockListings, type AgentListing } from "@/lib/agentListings";
 import type { ScheduledTour, TourRequest } from "@/app/api/schedule-tours/route";
 
 export const maxDuration = 60;
 
-const gateway = createOpenAI({
-  baseURL: "https://ai-gateway.vercel.sh/v1",
-  apiKey: process.env.VERCEL_AI_GATEWAY_KEY,
-});
-
-const model = gateway("anthropic/claude-sonnet-4-5");
+/** Vercel often rejects user-defined env vars named `VERCEL_*`; use `AI_GATEWAY_API_KEY` in production. */
+function resolveAiGatewayApiKey(): string | undefined {
+  const key =
+    process.env.AI_GATEWAY_API_KEY?.trim() ||
+    process.env.VERCEL_AI_GATEWAY_KEY?.trim();
+  return key || undefined;
+}
 
 const SYSTEM_PROMPT = `You are Nostos, a personal apartment-hunting concierge for NYC. You are warm, opinionated, and deeply knowledgeable about New York City neighborhoods. You handle everything — so the user never has to click buttons or fill out forms.
 
@@ -86,6 +87,23 @@ async function fetchListings(opts: FetchListingsOptions, baseUrl: string): Promi
 }
 
 export async function POST(req: NextRequest) {
+  const apiKey = resolveAiGatewayApiKey();
+  if (!apiKey) {
+    return NextResponse.json(
+      {
+        error:
+          "Nostos chat is not configured. Set AI_GATEWAY_API_KEY (Vercel AI Gateway token) in the environment.",
+      },
+      { status: 503 }
+    );
+  }
+
+  const gateway = createOpenAI({
+    baseURL: "https://ai-gateway.vercel.sh/v1",
+    apiKey,
+  });
+  const model = gateway("anthropic/claude-sonnet-4-5");
+
   const body = (await req.json()) as { messages: Message[]; userEmail?: string; userName?: string };
   const { messages, userEmail, userName } = body;
   const coreMessages = convertToCoreMessages(messages);
