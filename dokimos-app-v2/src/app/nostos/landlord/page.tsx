@@ -93,6 +93,7 @@ function newestJaniceAppForListingKey(
 }
 
 /** Three extra Brooklyn listings — full demo applicants (always). */
+const SHOWCASE_EXTRA_DEMOS: EnrichedApp[] = [
   {
     applicationId: "showcase-extra-marcy",
     listingId: "showcase-marcy",
