@@ -80,12 +80,39 @@ const DEMO_PADDING: EnrichedApp[] = [
   },
 ];
 
+/** Hide stale sandbox / QA rows that sometimes linger in the TEE in-memory store. */
+function isSandboxListingAddress(address: string): boolean {
+  const a = address.trim().toLowerCase();
+  if (!a) return true;
+  if (/\b123\s+test\b/i.test(address)) return true;
+  if (/\btest\s+st(reet)?\b/.test(a) && /\b123\b/.test(a)) return true;
+  if (a.includes("placeholder")) return true;
+  return false;
+}
+
+/** Collapse duplicate bookings for the same listing + tenant (keeps the newest row). */
+function dedupeByListingAndTenant(apps: EnrichedApp[]): EnrichedApp[] {
+  const m = new Map<string, EnrichedApp>();
+  for (const app of apps) {
+    const k = `${app.listingAddress.trim().toLowerCase()}::${String(app.userId).trim().toLowerCase()}`;
+    const prev = m.get(k);
+    if (
+      !prev ||
+      new Date(app.submittedAt).getTime() >= new Date(prev.submittedAt).getTime()
+    ) {
+      m.set(k, app);
+    }
+  }
+  return [...m.values()];
+}
+
 function mergeWithDemoPadding(real: EnrichedApp[]): EnrichedApp[] {
-  const realAddresses = new Set(real.map((r) => r.listingAddress.toLowerCase()));
-  const padding = DEMO_PADDING.filter(
-    (d) => !realAddresses.has(d.listingAddress.toLowerCase())
-  );
-  return [...real, ...padding].slice(0, 6);
+  const filtered = real.filter((r) => !isSandboxListingAddress(r.listingAddress));
+  const deduped = dedupeByListingAndTenant(filtered);
+  if (deduped.length === 0) {
+    return DEMO_PADDING.slice(0, 6);
+  }
+  return deduped;
 }
 
 function formatTourDay(iso: string): string {

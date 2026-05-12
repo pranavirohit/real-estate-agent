@@ -343,6 +343,7 @@ export default function NostosFind() {
       const listings = pendingVerifyTours.map((t, i) => ({
         listingId: `nostos_${Date.now()}_${i}`,
         listingAddress: t.address,
+        tourDate: t.viewingDate,
       }));
       const { data } = await axios.post<{ applications: Array<{ applicationId: string }> }>(
         "/api/nostos/book",

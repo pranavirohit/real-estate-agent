@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
-import { getTeeEndpoint } from "@/lib/teeEndpoint";
 
 export interface TourRequest {
   listingAddress: string;
@@ -509,23 +508,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Register applications in the TEE so the landlord dashboard shows them.
-  // Non-fatal: email delivery already succeeded even if TEE is unreachable.
-  try {
-    const TEE_ENDPOINT = getTeeEndpoint();
-    const listings = tours.map((t, i) => ({
-      listingId: `nostos_${Date.now()}_${i}`,
-      listingAddress: t.listingAddress,
-      tourDate: scheduledTours[i]?.viewingDate,
-    }));
-    await fetch(`${TEE_ENDPOINT}/api/nostos/book`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenantEmail, tenantName: displayName, listings }),
-    });
-  } catch (e) {
-    console.warn("[schedule-tours] TEE /api/nostos/book failed (non-fatal):", e);
-  }
+  // Rental applications are created once in the TEE when the renter taps "Approve & Apply"
+  // (POST /api/nostos/book from the Nostos flow). Calling nostos/book here too duplicated rows
+  // and bypassed Next.js tourDateStore enrichment.
 
   return NextResponse.json({
     scheduledTours,
