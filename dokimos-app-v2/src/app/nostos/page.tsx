@@ -6,8 +6,8 @@ export default function NostosLanding() {
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
 
-      {/* ── Left panel: all content (~68% on lg) ── */}
-      <div className="flex min-w-0 flex-1 flex-col lg:flex-none lg:w-[68%] lg:overflow-y-auto">
+      {/* ── Left panel: all content (50% on lg) ── */}
+      <div className="flex min-w-0 flex-1 flex-col lg:overflow-y-auto">
 
         {/* Nav */}
         <nav className="flex items-center justify-between px-6 py-5 sm:px-10">
@@ -39,7 +39,7 @@ export default function NostosLanding() {
           </p>
 
           <h1
-            className="max-w-xl text-5xl leading-[1.08] tracking-tight sm:text-6xl"
+            className="max-w-none text-5xl leading-[1.08] tracking-tight sm:text-6xl"
             style={{
               fontFamily: "var(--font-nostos-serif), Georgia, serif",
               color: "var(--nostos-ink)",
@@ -49,7 +49,7 @@ export default function NostosLanding() {
           </h1>
 
           <p
-            className="mt-7 max-w-3xl text-base leading-relaxed"
+            className="mt-7 max-w-none text-base leading-relaxed"
             style={{ color: "var(--nostos-ink-secondary)" }}
           >
             Tell us what you&rsquo;re looking for in plain language. Nostos finds listings that fit,
@@ -84,7 +84,7 @@ export default function NostosLanding() {
             </Link>
           </div>
 
-          <p className="mt-7 max-w-3xl text-xs leading-relaxed" style={{ color: "var(--nostos-muted)" }}>
+          <p className="mt-7 max-w-none text-xs leading-relaxed" style={{ color: "var(--nostos-muted)" }}>
             EigenCloud-backed hardware keeps verification off scattered email threads. One enrollment,
             many applications, with visibility into what landlords received.
           </p>
@@ -136,8 +136,8 @@ export default function NostosLanding() {
         </main>
       </div>
 
-      {/* ── Right panel: NYC map (~32% on lg) ── */}
-      <div className="relative h-64 w-full shrink-0 overflow-hidden lg:h-auto lg:w-[32%] lg:shrink-0 lg:sticky lg:top-0 lg:max-h-dvh">
+      {/* ── Right panel: NYC map (50% on lg) ── */}
+      <div className="relative h-64 w-full shrink-0 overflow-hidden lg:h-auto lg:flex-1 lg:sticky lg:top-0 lg:max-h-dvh">
         {/* Warm color overlay to match Nostos palette */}
         <div
           className="pointer-events-none absolute inset-0 z-10"
