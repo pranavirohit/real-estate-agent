@@ -11,6 +11,12 @@ const nextConfig = {
     };
     return config;
   },
+  async redirects() {
+    return [
+      { source: "/notos", destination: "/nostos", permanent: false },
+      { source: "/notos/:path*", destination: "/nostos/:path*", permanent: false },
+    ];
+  },
   async headers() {
     const isDev = process.env.NODE_ENV !== "production";
     // style-src includes blob: so dev/HMR and some tooling can attach stylesheets without breaking the page.
