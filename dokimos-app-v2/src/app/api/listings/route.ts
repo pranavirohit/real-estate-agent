@@ -171,16 +171,30 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
+  // Core filters — support both legacy param names and the new ones from the chat route
   const location = searchParams.get("location")?.trim() || "Brooklyn, NY";
-  const maxPrice = searchParams.get("maxPrice")?.trim() || "5000";
-  const beds = searchParams.get("beds")?.trim() || "1";
+  const maxPrice = searchParams.get("price_max")?.trim() || searchParams.get("maxPrice")?.trim() || "5000";
+  const beds = searchParams.get("beds_min")?.trim() || searchParams.get("beds")?.trim() || "1";
+
+  // Extended filters (new)
+  const petFriendly = searchParams.get("pet_friendly") === "true";
+  const minBaths = searchParams.get("min_baths")?.trim();
+  const neighborhood = searchParams.get("neighborhood")?.trim();
+  // Amenities are post-filtered client-side — Zillow scraper doesn't support free-text amenity search
+  const amenitiesRaw = searchParams.get("amenities")?.trim();
+  const amenityList = amenitiesRaw ? amenitiesRaw.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean) : [];
 
   const params = new URLSearchParams({
-    location,
+    // Use neighborhood as a more precise location when provided
+    location: neighborhood ? `${neighborhood}, ${location}` : location,
     status_type: "ForRent",
     beds_min: beds,
     price_max: maxPrice,
   });
+  // Pass pet_friendly to Zillow if supported by the scraper
+  if (petFriendly) params.set("pets_allowed", "true");
+  // Pass min baths if provided
+  if (minBaths) params.set("bathrooms_min", minBaths);
 
   const url = `${UPSTREAM_BASE}?${params.toString()}`;
 
@@ -222,11 +236,38 @@ export async function GET(request: NextRequest) {
     }
 
     const rawList = extractRawListings(body);
-    const listings: AgentListing[] = [];
+    let listings: AgentListing[] = [];
     for (let i = 0; i < rawList.length; i++) {
       const n = normalizeOne(rawList[i], i);
       if (n) listings.push(n);
     }
+
+    // Post-filter: pet_friendly — check raw listing fields Zillow exposes
+    if (petFriendly) {
+      listings = listings.filter((l) => {
+        const raw = rawList[listings.indexOf(l)] as Record<string, unknown>;
+        if (!isRecord(raw)) return true; // keep if we can't check
+        const pets = raw.petsAllowed ?? raw.petPolicy ?? raw.pets;
+        if (pets === undefined) return true; // no data — keep (Zillow often omits this)
+        if (typeof pets === "boolean") return pets;
+        if (typeof pets === "string") return !/no pets|not allowed/i.test(pets);
+        return true;
+      });
+    }
+
+    // Post-filter: min_baths
+    if (minBaths) {
+      const minBathsNum = parseFloat(minBaths);
+      if (!Number.isNaN(minBathsNum)) {
+        listings = listings.filter((l) => l.baths >= minBathsNum);
+      }
+    }
+
+    // Post-filter: amenities — match against the listing's details text where available
+    // Since AgentListing doesn't carry a free-text details field, we skip hard filtering
+    // and rely on Claude to mention the caveat when results come back.
+    // This is a no-op for now but the param is forwarded so future enrichment can use it.
+    void amenityList;
 
     return NextResponse.json({ listings });
   } catch (e: unknown) {
