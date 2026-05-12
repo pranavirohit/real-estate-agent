@@ -1,4 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "build": {
+    "env": {
+      "NOSTOS_PRIMARY_SITE": "1"
+    }
+  }
 }
