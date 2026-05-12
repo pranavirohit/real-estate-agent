@@ -6,8 +6,8 @@ export default function NostosLanding() {
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
 
-      {/* ── Left panel: all content ── */}
-      <div className="flex flex-1 flex-col lg:max-w-[52%] lg:overflow-y-auto">
+      {/* ── Left panel: all content (~68% on lg) ── */}
+      <div className="flex min-w-0 flex-1 flex-col lg:flex-none lg:w-[68%] lg:overflow-y-auto">
 
         {/* Nav */}
         <nav className="flex items-center justify-between px-6 py-5 sm:px-10">
@@ -136,8 +136,8 @@ export default function NostosLanding() {
         </main>
       </div>
 
-      {/* ── Right panel: NYC map ── */}
-      <div className="relative h-64 w-full lg:h-auto lg:flex-1 lg:sticky lg:top-0 lg:max-h-dvh overflow-hidden">
+      {/* ── Right panel: NYC map (~32% on lg) ── */}
+      <div className="relative h-64 w-full shrink-0 overflow-hidden lg:h-auto lg:w-[32%] lg:shrink-0 lg:sticky lg:top-0 lg:max-h-dvh">
         {/* Warm color overlay to match Nostos palette */}
         <div
           className="pointer-events-none absolute inset-0 z-10"
