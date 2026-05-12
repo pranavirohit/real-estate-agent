@@ -1911,6 +1911,77 @@ async function main() {
     )
   );
 
+  /**
+   * Nostos AI scheduling path: creates pre-approved rental applications for
+   * every listing in one call.  Called by the Next.js /api/schedule-tours
+   * route after tour emails are sent.  Synthesises a demo attestation so
+   * the landlord dashboard shows the applicant immediately.
+   */
+  server.post('/api/nostos/book', async (request, reply) => {
+    const body = request.body as {
+      tenantEmail?: string;
+      tenantName?: string;
+      listings?: Array<{ listingId: string; listingAddress: string }>;
+    };
+
+    if (!body.tenantEmail || !Array.isArray(body.listings) || body.listings.length === 0) {
+      return reply.code(400).send({ error: 'tenantEmail and listings[] are required.' });
+    }
+
+    const userEmail = normalizeConsumerEmail(body.tenantEmail);
+    const user = users.get(userEmail);
+    if (!user) {
+      return reply.code(404).send({ error: `User not found: ${userEmail}` });
+    }
+
+    const results: Array<{ applicationId: string; listingAddress: string }> = [];
+
+    for (const listing of body.listings) {
+      const timestamp = new Date().toISOString();
+      const attrs: Record<string, string | boolean> = {
+        name: user.name,
+        ageOver18: true,
+        notExpired: true,
+        address: 'Confirmed',
+      };
+
+      const attestation = await buildDemoAttestation(account, attrs, timestamp);
+
+      const requestId = `req_nostos_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const verReq: VerificationRequest = {
+        requestId,
+        verifierId: RENTAL_REAL_ESTATE_VERIFIER_ID,
+        verifierName: 'Brooklyn Properties LLC',
+        verifierEmail: 'broker@brooklyn-properties.demo',
+        userEmail,
+        requestedAttributes: ['name', 'ageOver18', 'address', 'notExpired'],
+        workflow: 'rental_application',
+        status: 'approved',
+        createdAt: timestamp,
+        completedAt: timestamp,
+        attestation,
+      };
+      requests.set(requestId, verReq);
+
+      const applicationId = `app_nostos_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const row: RentalApplication = {
+        applicationId,
+        listingId: listing.listingId,
+        listingAddress: listing.listingAddress,
+        userId: userEmail,
+        applicantName: body.tenantName ?? user.name,
+        attestationRequestId: requestId,
+        attestation,
+        status: 'submitted',
+        submittedAt: timestamp,
+      };
+      rentalApplications.set(applicationId, row);
+      results.push({ applicationId, listingAddress: listing.listingAddress });
+    }
+
+    return { applications: results };
+  });
+
   const port = Number(process.env.PORT ?? 8080);
   try {
     try {
