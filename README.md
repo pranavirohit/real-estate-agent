@@ -1,6 +1,6 @@
 # Nostos
 
-Every time you apply for an apartment, you upload the same ID, the same pay stubs, the same documents to a portal you'll never use again. The landlord at the place on Crosby Street gets the same package as the one on Flatbush Avenue. Then you apply to the next place and do it all over. The friction is real, the re-verification is pointless, and sooner or later one of those portals gets breached. Nostos is built on a different premise: you tell an agent what you're looking for, it finds apartments, books tours, and sends calendar invites — and when you're ready to apply, your verified identity travels with you as a cryptographic credential. No re-uploading. No handing documents to strangers. No paper trail sitting in a database somewhere.
+Every time you apply for an apartment, you upload the same ID, the same pay stubs, the same documents to a portal you'll never use again. The landlord at the place on Crosby Street gets the same package as the one on Flatbush Avenue. Then you apply to the next place and do it all over. The friction is real, the re-verification is pointless, and sooner or later one of those portals gets breached. Nostos is built on a different premise: you tell an agent what you're looking for, it finds apartments, books tours, and sends calendar invites. When you're ready to apply, your verified identity travels with you as a cryptographic credential. No re-uploading. No handing documents to strangers. No paper trail sitting in a database somewhere.
 
 Nostos is a NYC rental search and application platform with a privacy-preserving identity layer powered by Dokimos. A conversational AI agent (Claude) helps renters find apartments, books tours around their schedule, and then prompts a single identity verification that covers every application in that search. Landlords see verified applicants, tour times, and a five-step verification path they can follow independently, without trusting Nostos or anyone else.
 
@@ -12,15 +12,15 @@ The system has two sides: a renter who searches for apartments and builds a vaul
 
 ### The renter flow
 
-The experience starts at `/nostos/find` as a chat. The agent — Claude Sonnet running through the Vercel AI Gateway — asks a short sequence of questions: where you commute, what kind of apartment you want, how much you're willing to spend, and when you're free to tour. It's a conversation, not a form. You answer however you'd naturally answer, and the agent figures out the structure.
+The experience starts at `/nostos/find` as a chat. The agent (Claude Sonnet running through the Vercel AI Gateway) asks a short sequence of questions: where you commute, what kind of apartment you want, how much you're willing to spend, and when you're free to tour. It's a conversation, not a form. You answer however you'd naturally answer, and the agent figures out the structure.
 
-Once it has enough to work with, the agent calls `searchListings` — a real tool call to a Zillow data API — and surfaces matching apartments. You pick the ones you want to see. The agent calls `scheduleTours`, parses your availability into concrete time slots, builds RFC 5545-compliant `.ics` calendar files for each tour, and sends them to you and the landlord via Resend. Both parties get a calendar invite with the address, tour time, and a Google Maps link. No back-and-forth over email.
+Once it has enough to work with, the agent calls `searchListings`, a real tool call to a Zillow data API, and surfaces matching apartments. You pick the ones you want to see. The agent calls `scheduleTours`, parses your availability into concrete time slots, builds RFC 5545-compliant `.ics` calendar files for each tour, and sends them to you and the landlord via Resend. Both parties get a calendar invite with the address, tour time, and a Google Maps link. No back-and-forth over email.
 
 When you're ready to apply, the agent hands off to the Dokimos identity vault. A verification request is created in the TEE backend and you're directed to open your vault in a separate tab to approve it. Inside the TEE, tesseract.js reads your government ID and extracts structured fields (name, date of birth, address, expiry date) while the TensorFlow.js WASM face matcher compares the ID photo to your selfie. Neither image leaves the enclave. What comes out is a signed attestation: extracted attributes (name, ageOver18, address, notExpired), a face match result, a timestamp, and an ECDSA signature over a keccak256 hash of those exact fields. The attestation comes back to the agent within seconds, and the application is submitted with that signed credential attached.
 
 ### The landlord flow
 
-Landlords visit `/nostos/landlord` and see their properties alongside verified applicants. Every row is clickable. A verification modal opens showing exactly what the TEE verified — full name, age confirmation, address, document expiry — along with the timestamp and the cryptographic signature. The landlord gets a clear, auditable record of what was checked. They don't get the tenant's actual ID. They don't need it.
+Landlords visit `/nostos/landlord` and see their properties alongside verified applicants. Every row is clickable. A verification modal opens showing exactly what the TEE verified (full name, age confirmation, address, document expiry) along with the timestamp and the cryptographic signature. The landlord gets a clear, auditable record of what was checked. They don't get the tenant's actual ID. They don't need it.
 
 The dashboard polls for new applications every twelve seconds, so there's no manual refresh needed during a demo or a live screening session.
 
@@ -97,7 +97,7 @@ The TEE boundary is the key constraint: images go in, structured claims and a si
 
 ## What's real vs. what's simulated
 
-The AI agent is real. It calls Claude Sonnet via the Vercel AI Gateway, executes genuine tool calls, and streams responses back to the client. The tour scheduling emails are real: Resend delivers them and the RFC 5545-compliant `.ics` attachments land in both the renter's and landlord's calendars. The ECDSA signatures on attestations are real — generated by viem from a wallet derived from the KMS-injected `MNEMONIC` and independently verifiable on Etherscan. The OCR pipeline is real (tesseract.js running in-process) and the face matching is real (@tensorflow/tfjs-backend-wasm running descriptor-distance comparison against the face-api models).
+The AI agent is real. It calls Claude Sonnet via the Vercel AI Gateway, executes genuine tool calls, and streams responses back to the client. The tour scheduling emails are real: Resend delivers them and the RFC 5545-compliant `.ics` attachments land in both the renter's and landlord's calendars. The ECDSA signatures on attestations are real: generated by viem from a wallet derived from the KMS-injected `MNEMONIC` and independently verifiable on Etherscan. The OCR pipeline is real (tesseract.js running in-process) and the face matching is real (@tensorflow/tfjs-backend-wasm running descriptor-distance comparison against the face-api models).
 
 The TEE quote fields in each attestation response (`mrenclave`, `tcbStatus`, and related Intel TDX fields) are structurally correct but contain simulated values. EigenCompute doesn't yet expose the hardware-generated quote to applications running inside the enclave, so the code generates a well-formed placeholder and documents this honestly in a `note` field on every attestation response. When the platform surface becomes available, replacing the simulated quote with a real one is the only code change needed.
 
@@ -126,7 +126,7 @@ All application state, user data, and verification requests live in-memory. The 
 
 Two processes are required. Start them in separate terminals.
 
-**Terminal 1 — TEE backend (repo root)**
+**Terminal 1: TEE backend (repo root)**
 
 ```bash
 npm install
@@ -142,7 +142,7 @@ MNEMONIC=word1 word2 word3 ... word12
 
 The `MNEMONIC`-derived wallet is only meaningful inside EigenCloud's hardware. Locally it produces valid ECDSA signatures that are not backed by a hardware attestation and won't match the production wallet on Etherscan.
 
-**Terminal 2 — Next.js frontend (`dokimos-app-v2/`)**
+**Terminal 2: Next.js frontend (`dokimos-app-v2/`)**
 
 ```bash
 cd dokimos-app-v2
@@ -158,7 +158,7 @@ NEXTAUTH_SECRET=                  # openssl rand -base64 32
 NEXTAUTH_URL=http://localhost:8081
 TEE_ENDPOINT=http://localhost:8080
 
-# Optional — demo works without these, but with reduced functionality
+# Optional: demo works without these, but with reduced functionality
 GOOGLE_CLIENT_ID=                 # real Google sign-in
 GOOGLE_CLIENT_SECRET=
 AI_GATEWAY_API_KEY=               # Claude agent; chat will fail without this
