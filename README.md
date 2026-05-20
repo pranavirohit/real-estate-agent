@@ -6,6 +6,12 @@ Nostos is a NYC rental search and application platform with a privacy-preserving
 
 ---
 
+## See it in action
+
+Nostos is built on Dokimos, a privacy-preserving identity layer that lets AI agents carry verifiable proof of a user's identity to any counterparty. If you're new to Dokimos, the [Dokimos demo](https://www.youtube.com/watch?v=kgIT-hWMoCM) (5 min) explains the identity infrastructure first. The [Nostos demo](https://www.youtube.com/watch?v=c1zVlZDYzC0) (5 min) then shows what's possible when that layer exists: a rental agent that finds apartments, books tours, and submits applications where the landlord receives a cryptographic proof instead of a copy of your passport.
+
+---
+
 ## How it works
 
 The system has two sides: a renter who searches for apartments and builds a vault of verified credentials, and a landlord who receives verified rental applications without collecting sensitive documents. The identity verification itself happens inside a Trusted Execution Environment running on EigenCompute's Intel TDX hardware, where neither the renter nor the developer nor the landlord can see or alter the computation.
