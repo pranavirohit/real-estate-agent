@@ -20,7 +20,7 @@ The system has two sides: a renter who searches for apartments and builds a vaul
 
 The experience starts at `/nostos/find` as a chat. The agent (Claude Sonnet running through the Vercel AI Gateway) asks a short sequence of questions: where you commute, what kind of apartment you want, how much you're willing to spend, and when you're free to tour. It's a conversation, not a form. You answer however you'd naturally answer, and the agent figures out the structure.
 
-Once it has enough to work with, the agent calls `searchListings`, a real tool call to a Zillow data API, and surfaces matching apartments. You pick the ones you want to see. The agent calls `scheduleTours`, parses your availability into concrete time slots, builds RFC 5545-compliant `.ics` calendar files for each tour, and sends them to you and the landlord via Resend. Both parties get a calendar invite with the address, tour time, and a Google Maps link. No back-and-forth over email.
+Once it has enough to work with, the agent calls `searchListings`, a real tool call to a Zillow data API, and surfaces matching apartments. Without asking you to choose, the agent immediately calls `scheduleTours` with the top matches — it parses your availability into concrete time slots, builds RFC 5545-compliant `.ics` calendar files for each tour, and sends them to you and the landlord via Resend. Both parties get a calendar invite with the address, tour time, and a Google Maps link. No back-and-forth over email.
 
 When you're ready to apply, the agent hands off to the Dokimos identity vault. A verification request is created in the TEE backend and you're directed to open your vault in a separate tab to approve it. Inside the TEE, tesseract.js reads your government ID and extracts structured fields (name, date of birth, address, expiry date) while the TensorFlow.js WASM face matcher compares the ID photo to your selfie. Neither image leaves the enclave. What comes out is a signed attestation: extracted attributes (name, ageOver18, address, notExpired), a face match result, a timestamp, and an ECDSA signature over a keccak256 hash of those exact fields. The attestation comes back to the agent within seconds, and the application is submitted with that signed credential attached.
 
@@ -199,11 +199,11 @@ docker run -p 8080:8080 --env-file .env nostos-tee
 | `src/faceVerification.ts` | TensorFlow.js WASM face match pipeline |
 | `dokimos-app-v2/src/app/nostos/` | Nostos product routes: renter landing, conversational search, landlord dashboard |
 | `dokimos-app-v2/src/app/api/nostos/` | BFF routes: AI chat streaming, booking, tour scheduling |
+| `dokimos-app-v2/src/agent/` | Agent tool registry: `systemPrompt.ts`, `toolRegistry.ts`, `tools/searchListings.ts`, `tools/scheduleTours.ts` |
 | `dokimos-app-v2/src/app/onboarding/` | Identity verification flow: ID upload, liveness, vault |
 | `dokimos-app-v2/src/app/app/` | User vault, request management, settings |
 | `Dockerfile` | Production enclave image (linux/amd64, Alpine) |
 | `dokimos-app-v2/docs/` | Demo scripts, PRD, verification flow documentation |
-| `context/` | Build notes and EigenCloud integration reference |
 
 ---
 
