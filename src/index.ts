@@ -18,6 +18,7 @@ import {
   extractIdPhoto,
   type FaceMatchResult,
 } from './faceVerification';
+import { isDedalusOcrEnabled, extractTextViaDedalusOcr } from './dedalusOcr';
 
 type RentalApplication = {
   applicationId: string;
@@ -942,10 +943,36 @@ function parseIDText(text: string): Partial<ExtractedAttributes> {
     fullText.includes('NORTH STREET')
   ) {
     let address: string | undefined;
+
+    // Line-based AAMVA parse (most reliable on clean OCR like Dedalus markdown):
+    // the street sits on its own line (optionally prefixed by AAMVA field "8"),
+    // and the next line holds "CITY, ST ZIP". This avoids greedy multi-line regex
+    // capture that previously swallowed the name/DOB fields above the address.
+    {
+      const rawLines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+      const streetRe =
+        /^(?:8\s+)?(\d{1,5}\s+[A-Z0-9][A-Z0-9 ]*?(?:STREET|ST|AVENUE|AVE|ROAD|RD|DRIVE|DR|BOULEVARD|BLVD|LANE|LN|WAY|COURT|CT|PLACE|PL))\b/i;
+      const cityStateZipRe = /^([A-Z][A-Z .'\-]+?),?\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\b/i;
+      for (let i = 0; i < rawLines.length; i++) {
+        const sm = rawLines[i].match(streetRe);
+        if (!sm) continue;
+        const street = sm[1].replace(/\s+/g, ' ').trim();
+        const cz = (rawLines[i + 1] || '').match(cityStateZipRe);
+        address = (cz
+          ? `${street}, ${cz[1].trim()}, ${cz[2]} ${cz[3]}`
+          : street
+        )
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toUpperCase();
+        break;
+      }
+    }
+
     const addressPattern1 =
       /(\d{1,5}\s+[A-Z0-9\s]+(?:STREET|ST|AVENUE|AVE|ROAD|RD|DRIVE|DR|BOULEVARD|BLVD|LANE|LN|WAY|COURT|CT|PLACE|PL)[,\s]+[A-Z\s]+,?\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?)/i;
     const addressMatch1 = text.match(addressPattern1);
-    if (addressMatch1) {
+    if (!address && addressMatch1) {
       address = addressMatch1[1].replace(/\s+/g, ' ').trim().toUpperCase();
     }
     if (!address) {
@@ -991,16 +1018,34 @@ async function extractAttributesFromDocument(imageBase64: string): Promise<Extra
     throw Object.assign(new Error(validated.message), { statusCode: 400 });
   }
   try {
-    // Initialize OCR worker (tesseract.js createWorker('eng') loads + initializes eng)
-    const worker = await initializeOCR();
-
     console.log('🔍 Starting OCR extraction...');
     console.log('📸 Image size (base64 length):', imageBase64.length);
 
-    const imageBuffer = Buffer.from(validated.stripped, 'base64');
+    // Prefer Dedalus OCR (cleaner extraction) when explicitly opted in; otherwise
+    // run Tesseract locally so the image never leaves the TEE. Dedalus failures
+    // fall back to local Tesseract so verification never breaks on a network error.
+    let ocrText: string;
+    if (isDedalusOcrEnabled()) {
+      try {
+        console.log('🌐 Using Dedalus OCR (image leaves TEE — opt-in via DEDALUS_OCR)');
+        ocrText = await extractTextViaDedalusOcr(validated.stripped);
+      } catch (dedalusErr) {
+        console.warn(
+          '⚠️ Dedalus OCR failed, falling back to local Tesseract:',
+          dedalusErr instanceof Error ? dedalusErr.message : dedalusErr
+        );
+        const worker = await initializeOCR();
+        const imageBuffer = Buffer.from(validated.stripped, 'base64');
+        const recognizeResult = await worker.recognize(imageBuffer);
+        ocrText = recognizeResult.data.text;
+      }
+    } else {
+      const worker = await initializeOCR();
+      const imageBuffer = Buffer.from(validated.stripped, 'base64');
+      const recognizeResult = await worker.recognize(imageBuffer);
+      ocrText = recognizeResult.data.text;
+    }
 
-    const recognizeResult = await worker.recognize(imageBuffer);
-    const ocrText = recognizeResult.data.text;
     console.log('✅ OCR completed successfully');
     console.log('📝 OCR text length:', ocrText.length);
     console.log('📝 OCR text preview (first 300 chars):', ocrText.substring(0, 300));
