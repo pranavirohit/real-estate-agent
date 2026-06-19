@@ -393,12 +393,35 @@ function buildLandlordTourEmail(params: {
 </div>`.trim();
 }
 
+/**
+ * Anti-prompt-injection guard: landlordEmail is supplied by the model (from the
+ * listings it chose), so it could be steered to an attacker address via indirect
+ * injection (e.g. poisoned web-search content). Only send landlord notifications
+ * to domains on an allowlist. Anything else is dropped (the tenant still gets their
+ * confirmation). Configure with NOSTOS_LANDLORD_EMAIL_ALLOWLIST (comma-separated
+ * domains); defaults to the demo domain.
+ */
+function buildLandlordEmailGuard(): (email?: string) => boolean {
+  const allowlist = (process.env.NOSTOS_LANDLORD_EMAIL_ALLOWLIST?.trim() || "nostos-demo.com")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return (email?: string): boolean => {
+    if (!email) return false;
+    const at = email.lastIndexOf("@");
+    if (at === -1) return false;
+    const domain = email.slice(at + 1).toLowerCase();
+    return allowlist.includes(domain);
+  };
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() ?? "Nostos <onboarding@resend.dev>";
   const toOverride = process.env.RESEND_TO_OVERRIDE?.trim();
   const appBaseUrl = process.env.NEXTAUTH_URL?.trim() ?? "http://localhost:8081";
   const resolveRecipient = (addr: string) => toOverride ?? addr;
+  const isAllowedLandlordEmail = buildLandlordEmailGuard();
 
   let body: unknown;
   try {
@@ -457,7 +480,18 @@ export async function POST(req: NextRequest) {
     const timeLabel = formatTime(slot);
     const uid = `nostos-tour-${Date.now()}-${i}@nostos-app`;
 
-    const attendees = [tenantEmail, ...(tour.landlordEmail ? [tour.landlordEmail] : [])];
+    // Only trust landlord emails on the allowlist; drop (and warn on) anything else.
+    const trustedLandlordEmail = isAllowedLandlordEmail(tour.landlordEmail)
+      ? tour.landlordEmail
+      : undefined;
+    if (tour.landlordEmail && !trustedLandlordEmail) {
+      console.warn(
+        `[schedule-tours] landlord email ${i} blocked — domain not in allowlist`
+      );
+      errors.push(`landlord_email_${i}_blocked_untrusted_domain`);
+    }
+
+    const attendees = [tenantEmail, ...(trustedLandlordEmail ? [trustedLandlordEmail] : [])];
     const icsContent = buildIcs({
       uid,
       summary: `Apartment Tour: ${tour.listingAddress}`,
@@ -484,7 +518,7 @@ export async function POST(req: NextRequest) {
           tourNumber: i + 1,
           totalTours: tours.length,
           listingUrl: tour.listingUrl,
-          landlordEmail: tour.landlordEmail,
+          landlordEmail: trustedLandlordEmail,
         }),
         attachments: [{ filename: "tour.ics", content: icsBase64 }],
       });
@@ -493,12 +527,12 @@ export async function POST(req: NextRequest) {
       errors.push(`tenant_email_${i}_failed`);
     }
 
-    // Landlord email (optional)
-    if (tour.landlordEmail) {
+    // Landlord email (optional) — only to allowlisted domains
+    if (trustedLandlordEmail) {
       try {
         await resend.emails.send({
           from: fromEmail,
-          to: resolveRecipient(tour.landlordEmail),
+          to: resolveRecipient(trustedLandlordEmail),
           subject: `New verified applicant: ${tour.listingAddress}`,
           html: buildLandlordTourEmail({
             tenantName: displayName,
