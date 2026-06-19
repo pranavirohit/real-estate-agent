@@ -6,31 +6,53 @@ import { createNostosTools } from "@/agent/toolRegistry";
 
 export const maxDuration = 60;
 
-/** Vercel often rejects user-defined env vars named `VERCEL_*`; use `AI_GATEWAY_API_KEY` in production. */
-function resolveAiGatewayApiKey(): string | undefined {
-  const key =
-    process.env.AI_GATEWAY_API_KEY?.trim() ||
-    process.env.VERCEL_AI_GATEWAY_KEY?.trim();
-  return key || undefined;
+const DEDALUS_BASE_URL = "https://api.dedaluslabs.ai/v1";
+const VERCEL_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1";
+const NOSTOS_MODEL = "anthropic/claude-sonnet-4-5";
+
+interface ChatProvider {
+  baseURL: string;
+  apiKey: string;
+  name: "dedalus" | "vercel";
+}
+
+/**
+ * Prefer Dedalus (model-routing layer); fall back to the Vercel AI Gateway if no
+ * Dedalus key is present. Both expose an OpenAI-compatible endpoint, so the rest of
+ * the streamText + tools pipeline is identical regardless of which one is used.
+ * Note: Vercel often rejects user-defined env vars named `VERCEL_*`; use the
+ * documented names below in production.
+ */
+function resolveChatProvider(): ChatProvider | undefined {
+  const dedalusKey = process.env.DEDALUS_API_KEY?.trim();
+  if (dedalusKey) {
+    return { baseURL: DEDALUS_BASE_URL, apiKey: dedalusKey, name: "dedalus" };
+  }
+  const gatewayKey =
+    process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_AI_GATEWAY_KEY?.trim();
+  if (gatewayKey) {
+    return { baseURL: VERCEL_GATEWAY_BASE_URL, apiKey: gatewayKey, name: "vercel" };
+  }
+  return undefined;
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = resolveAiGatewayApiKey();
-  if (!apiKey) {
+  const provider = resolveChatProvider();
+  if (!provider) {
     return NextResponse.json(
       {
         error:
-          "Nostos chat is not configured. Set AI_GATEWAY_API_KEY (Vercel AI Gateway token) in the environment.",
+          "Nostos chat is not configured. Set DEDALUS_API_KEY (preferred) or AI_GATEWAY_API_KEY in the environment.",
       },
       { status: 503 }
     );
   }
 
-  const gateway = createOpenAI({
-    baseURL: "https://ai-gateway.vercel.sh/v1",
-    apiKey,
+  const client = createOpenAI({
+    baseURL: provider.baseURL,
+    apiKey: provider.apiKey,
   });
-  const model = gateway("anthropic/claude-sonnet-4-5");
+  const model = client(NOSTOS_MODEL);
 
   const body = (await req.json()) as { messages: Message[]; userEmail?: string; userName?: string };
   const { messages, userEmail, userName } = body;
