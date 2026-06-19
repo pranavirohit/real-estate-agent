@@ -13,10 +13,43 @@ Unlike a generic web-search MCP, this returns clean, typed listing objects (id, 
 
 Both tools return human-readable text **and** `structuredContent` for programmatic use.
 
-## Data source
+## Data sources
 
-- With `RAPIDAPI_KEY` set, it queries live Zillow rental data (RapidAPI `zillow-property-data1`).
-- Without a key (or on upstream failure), it returns built-in demo Brooklyn listings, so the tools always work for testing and demos.
+`search_rentals` tries three tiers and falls back automatically, so it never fails:
+
+1. **Browser agent on a Dedalus Machine** (opt-in, highest fidelity) — drives a real headless Chromium on a persistent [Dedalus Machine](https://docs.dedaluslabs.ai/dcs/dm/dedalus-machines), renders a live rentals search page, then uses the Dedalus **Models API** to extract structured listings. See [Browser agent](#browser-agent-on-a-dedalus-machine).
+2. **Zillow via RapidAPI** — when `RAPIDAPI_KEY` is set (`zillow-property-data1`).
+3. **Demo Brooklyn listings** — always available for testing and demos.
+
+The `source` field in the response (`"browser-agent" | "zillow" | "demo"`) tells you which tier answered.
+
+## Browser agent on a Dedalus Machine
+
+This closes the live-listings gap: instead of one rentals API, the agent uses a real browser on Dedalus compute to read whatever is actually listed, and an LLM to structure it. It uses two Dedalus APIs together — **Machines** (the sandbox + browser) and **Models** (extraction).
+
+The machine is provisioned **once**, then woken → used → put back to sleep per search (idle cost ≈ 0).
+
+```bash
+cd nostos-rentals-mcp
+npm install
+
+# 1) Provision the machine once (installs Node + Playwright + Chromium):
+DEDALUS_API_KEY=sk-... npm run provision
+#    → prints DEDALUS_MACHINE_ID=dm-xxxx
+
+# 2) Enable the source in your .env:
+#    DEDALUS_API_KEY=sk-...
+#    RENTALS_BROWSER_AGENT=1
+#    DEDALUS_MACHINE_ID=dm-xxxx
+
+# 3) Run the server — search_rentals now uses the live browser agent first.
+npm start
+```
+
+Notes:
+- Requires a Dedalus account with Machines access and an API key.
+- Override the page it opens with `RENTALS_TARGET_URL`, or the extraction model with `NOSTOS_BROWSER_MODEL`.
+- If the machine is unreachable or returns nothing, `search_rentals` silently falls back to Zillow/demo.
 
 ## Run locally
 

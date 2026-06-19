@@ -197,15 +197,39 @@ function normalizeOne(raw: unknown, index: number): RentalListing | null {
 
 export interface SearchResult {
   listings: RentalListing[];
-  source: "zillow" | "demo";
+  source: "browser-agent" | "zillow" | "demo";
   note?: string;
 }
 
 /**
- * Search NYC rentals. Uses live Zillow data when RAPIDAPI_KEY is set; otherwise
- * (or on upstream failure) returns the demo Brooklyn listings so tools always work.
+ * Search NYC rentals. Source priority:
+ *   1. Browser agent on a Dedalus Machine (live, JS-rendered scrape) — opt-in.
+ *   2. Zillow via RapidAPI (when RAPIDAPI_KEY is set).
+ *   3. Demo Brooklyn listings (always works).
+ * Each tier falls back to the next so the tool never fails.
  */
 export async function searchRentals(params: SearchParams): Promise<SearchResult> {
+  // Tier 1: live browser agent (opt-in via RENTALS_BROWSER_AGENT + DEDALUS_MACHINE_ID).
+  // Imported lazily so the MCP server has no hard dependency on the machine path.
+  try {
+    const { isBrowserAgentEnabled, scrapeRentalsViaBrowser } = await import("./browserAgent.js");
+    if (isBrowserAgentEnabled()) {
+      const agent = await scrapeRentalsViaBrowser(params);
+      if (agent.listings.length > 0) {
+        return {
+          listings: agent.listings.slice(0, 8),
+          source: "browser-agent",
+          note: `Live results via browser agent on Dedalus Machine ${agent.machineId} (${agent.targetUrl}).`,
+        };
+      }
+    }
+  } catch (e) {
+    console.warn(
+      "[nostos-rentals-mcp] browser agent failed, falling back:",
+      e instanceof Error ? e.message : e
+    );
+  }
+
   const key = process.env.RAPIDAPI_KEY?.trim();
   if (!key) {
     return {

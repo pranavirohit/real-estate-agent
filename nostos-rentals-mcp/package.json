@@ -7,11 +7,13 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
+    "provision": "tsx src/provision-machine.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "dotenv": "^17.4.2",
     "express": "^4.21.0",
     "zod": "^3.23.8"
   },
