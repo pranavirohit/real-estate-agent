@@ -71,6 +71,9 @@ _tsnode*.txt
 # Exported chat / context dumps (often contain sensitive internal discussion)
 dokimos_context_*.txt
 
+# Product context / reference docs (local only; not part of deployable code)
+context/
+
 # Legacy `dokimos-app/`: saved third-party marketing page scrapes (removed from history going forward)
 dokimos-app/plaid_files/
 dokimos-app/plaid_dashboard_signup_files/
