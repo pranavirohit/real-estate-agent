@@ -12,16 +12,17 @@ import { normalizeListingAddress } from "@/lib/listingAddressNormalize";
 
 type EnrichedApp = RentalApplicationRecord & { tourDate?: string };
 
+/** More specific streets first — `find()` uses first match (see propertyPhoto). */
 const PROPERTY_PHOTOS: Array<{ keywords: string[]; url: string }> = [
-  { keywords: ["flatbush", "park slope"], url: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80&fit=crop" },
-  { keywords: ["wythe", "williamsburg"], url: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80&fit=crop" },
-  { keywords: ["nostrand", "bed-stuy", "bedford"], url: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80&fit=crop" },
-  // Marcy Ave, Williamsburg — industrial-chic loft with exposed concrete and large windows
-  { keywords: ["marcy"], url: "https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=600&q=80&fit=crop" },
-  // Gates Ave, Bed-Stuy — warm pre-war interior with hardwood floors and high ceilings
-  { keywords: ["gates"], url: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&q=80&fit=crop" },
-  // Prospect Park SW, Park Slope — bright, airy living room with large windows and natural light
-  { keywords: ["prospect"], url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80&fit=crop" },
+  // Marcy Ave, Williamsburg — compact modern living space
+  { keywords: ["marcy ave", "marcy"], url: "https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=600&q=80&fit=crop" },
+  // Gates Ave, Bed-Stuy — layered textiles and warm wood
+  { keywords: ["gates ave", "gates"], url: "https://images.unsplash.com/photo-1615876234886-fd9a39fda97f?w=600&q=80&fit=crop" },
+  // Prospect Park SW, Park Slope — light-filled open plan (before generic "park slope" rows)
+  { keywords: ["prospect park", "prospect"], url: "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=600&q=80&fit=crop" },
+  { keywords: ["flatbush"], url: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80&fit=crop" },
+  { keywords: ["wythe"], url: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80&fit=crop" },
+  { keywords: ["nostrand"], url: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80&fit=crop" },
 ];
 const FALLBACK_PHOTO = "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=600&q=80&fit=crop";
 

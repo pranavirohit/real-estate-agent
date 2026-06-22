@@ -3,34 +3,44 @@ import { fallbackMockListings, type AgentListing } from "@/lib/agentListings";
 
 interface FetchListingsOptions {
   location: string;
-  maxPrice: number;
-  beds: number;
+  maxRent: number;
+  bedrooms: number;
   petFriendly?: boolean;
   amenities?: string[];
-  minBaths?: number;
+  minBathrooms?: number;
   neighborhood?: string;
 }
 
-async function fetchListings(opts: FetchListingsOptions, baseUrl: string): Promise<AgentListing[]> {
-  const { location, maxPrice, beds, petFriendly, amenities, minBaths, neighborhood } = opts;
+interface ListingsResult {
+  listings: AgentListing[];
+  source: "rentcast" | "demo";
+  note?: string;
+}
+
+async function fetchListings(opts: FetchListingsOptions, baseUrl: string): Promise<ListingsResult> {
+  const { location, maxRent, bedrooms, petFriendly, amenities, minBathrooms, neighborhood } = opts;
   try {
     const params = new URLSearchParams();
     if (location) params.set("location", location);
-    if (maxPrice) params.set("price_max", String(maxPrice));
-    if (beds) params.set("beds_min", String(beds));
+    if (maxRent) params.set("price_max", String(maxRent));
+    if (bedrooms) params.set("beds_min", String(bedrooms));
     if (petFriendly) params.set("pet_friendly", "true");
-    if (minBaths) params.set("min_baths", String(minBaths));
+    if (minBathrooms) params.set("min_baths", String(minBathrooms));
     if (neighborhood) params.set("neighborhood", neighborhood);
     if (amenities?.length) params.set("amenities", amenities.join(","));
 
     const res = await fetch(`${baseUrl}/api/listings?${params}`, { next: { revalidate: 0 } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { listings?: AgentListing[] };
+    const data = (await res.json()) as { listings?: AgentListing[]; source?: string };
     const listings = Array.isArray(data.listings) ? data.listings : [];
     if (listings.length === 0) throw new Error("empty");
-    return listings.slice(0, 8);
+    return { listings: listings.slice(0, 8), source: "rentcast" as const };
   } catch {
-    return fallbackMockListings();
+    return {
+      listings: fallbackMockListings(),
+      source: "demo",
+      note: "Live listings are unavailable right now. Showing sample Brooklyn apartments for demonstration.",
+    };
   }
 }
 
@@ -41,29 +51,28 @@ export function createSearchListingsTool(baseUrl: string) {
     parameters: jsonSchema<FetchListingsOptions>({
       type: "object",
       properties: {
-        location: { type: "string", description: "Neighborhood or borough, e.g. 'Brooklyn, NY'" },
-        maxPrice: { type: "number", description: "Maximum monthly rent in USD" },
-        beds: { type: "number", description: "Minimum number of bedrooms" },
+        location: { type: "string", description: "Borough or city, e.g. 'Brooklyn, NY'" },
+        maxRent: { type: "number", description: "Maximum monthly rent in USD" },
+        bedrooms: { type: "number", description: "Minimum number of bedrooms" },
         petFriendly: { type: "boolean" },
         amenities: {
           type: "array",
           items: { type: "string" },
-          description: "Required amenities e.g. dishwasher, gym, doorman",
+          description: "Required amenities e.g. dishwasher, gym, in-unit laundry",
         },
-        minBaths: { type: "number" },
+        minBathrooms: { type: "number" },
         neighborhood: {
           type: "string",
           description: "Specific neighborhood e.g. Williamsburg, Astoria",
         },
       },
-      required: ["location", "maxPrice", "beds"],
+      required: ["location", "maxRent", "bedrooms"],
     }),
-    execute: async ({ location, maxPrice, beds, petFriendly, amenities, minBaths, neighborhood }) => {
-      const listings = await fetchListings(
-        { location, maxPrice, beds, petFriendly, amenities, minBaths, neighborhood },
+    execute: async ({ location, maxRent, bedrooms, petFriendly, amenities, minBathrooms, neighborhood }) => {
+      return fetchListings(
+        { location, maxRent, bedrooms, petFriendly, amenities, minBathrooms, neighborhood },
         baseUrl
       );
-      return { listings };
     },
   });
 }

@@ -17,7 +17,7 @@ interface TourListing {
 interface ScheduleToursParams {
   listings: TourListing[];
   tourCount: number;
-  availabilityNote: string;
+  userAvailability: string;
 }
 
 export function createScheduleToursTool(
@@ -27,14 +27,14 @@ export function createScheduleToursTool(
 ) {
   return tool({
     description:
-      "Schedule apartment tours for multiple listings and send calendar invites by email. Call this immediately after searchListings returns — pick the top N listings where N is the tour count the user requested. Pass the user's availability note so tours get scheduled at times that work for them. Do not ask for confirmation first.",
+      "Schedule apartment tours and send calendar invites. Call immediately after searchListings — pass the full listing objects returned by searchListings (not just IDs), pick the top N where N equals tourCount. Do not ask for confirmation first.",
     parameters: jsonSchema<ScheduleToursParams>({
       type: "object",
       properties: {
         listings: {
           type: "array",
           description:
-            "The top N listings to schedule tours for (in priority order). N should match tourCount.",
+            "Full listing objects from searchListings results (not just IDs — pass the entire object). Top N in priority order, N = tourCount.",
           items: {
             type: "object",
             properties: {
@@ -55,15 +55,15 @@ export function createScheduleToursTool(
           type: "number",
           description: "How many tours to schedule (should match what the user requested)",
         },
-        availabilityNote: {
+        userAvailability: {
           type: "string",
           description:
-            "Plain-English description of when the user is free, e.g. 'weekday evenings after 6pm', 'Saturday mornings', 'any weekday afternoon'. Pass exactly what the user said.",
+            "When the user is free, e.g. 'weekday evenings after 6pm', 'Saturday mornings'. Pass exactly what the user said.",
         },
       },
-      required: ["listings", "tourCount", "availabilityNote"],
+      required: ["listings", "tourCount", "userAvailability"],
     }),
-    execute: async ({ listings, tourCount, availabilityNote }) => {
+    execute: async ({ listings, tourCount, userAvailability }) => {
       const toursToSchedule = listings.slice(0, tourCount);
       const tourRequests: TourRequest[] = toursToSchedule.map((l) => ({
         listingAddress: l.address,
@@ -80,7 +80,7 @@ export function createScheduleToursTool(
             tours: tourRequests,
             tenantEmail: userEmail,
             tenantName: userName,
-            availabilityNote,
+            availabilityNote: userAvailability,
           }),
         });
         if (!res.ok) {
